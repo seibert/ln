@@ -16,6 +16,6 @@ setup(
     #long_description = read('README.md'),
     packages = ['ln'],
     scripts = ['bin/ln-server'],
-    install_requires = ['flask']
+    install_requires = ['flask', 'requests', 'pytest']
 )
 

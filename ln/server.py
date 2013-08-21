@@ -45,5 +45,5 @@ def start(config):
 
     print 'Base URL is', config['url_base']
 
-    app.run(debug=True)
+    app.run(host=config['host'], port=config['port'], debug=True)
 
