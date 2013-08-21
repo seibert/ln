@@ -220,4 +220,9 @@ returns the following result::
             ]
     }
 
+.. _continuous-query:
+
+Continuous Queries
+******************
+Rather than polling for new data, you can subscribe to changes and receive updates pushed from the server via server-sent events (SSE). In this case, the results are sent as a series of (time, value) pairs rather than a list of times and a list of values. This mode is selected by leaving the parameter *last* out of the query.
 
