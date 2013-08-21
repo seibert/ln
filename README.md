@@ -7,7 +7,7 @@ irregularly-spaced intervals, and supports time-oriented queries on that data.
 It is primarily intended for logging numeric data, rather than string messages
 like syslog.
 
-**WARING:** Natural Log is currently practicing "Documentation Driven
+**WARNING:** Natural Log is currently practicing "Documentation Driven
 Development," so none of the code exists to do any of this yet.
 
 Documentation
