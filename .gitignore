@@ -1,7 +1,9 @@
 build
 dist
+env
 *.egg-info
 
 *.pyc
 *.swp
 
+doc/_build/
