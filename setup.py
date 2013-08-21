@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import sys
 import os
 
@@ -8,7 +8,7 @@ from ln import __version__
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-install_requires = ['flask', 'requests', 'pytest']
+install_requires = ['flask', 'requests', 'sqlalchemy', 'pytest']
 # Trick lifted from tox setup.py
 version = sys.version_info[:2]
 if version < (2,7) or (3,0) <= version <= (3,1):
@@ -19,9 +19,9 @@ setup(
     version = __version__,
     description = ("Natural Log is a time-series database with a REST API."),
     url = "http://github.com/seibert/ln",
-    #long_description = read('README.md'),
-    packages = ['ln'],
+    long_description = read('README.md'),
+    packages = find_packages(),
     scripts = ['bin/ln-server'],
-    install_requires = ['flask', 'requests', 'pytest']
+    install_requires = install_requires
 )
 

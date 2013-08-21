@@ -1,0 +1,3 @@
+include *.md
+recursive-include doc *.rst *.png
+prune doc/_build
