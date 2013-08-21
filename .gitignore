@@ -1,6 +1,8 @@
 build
 dist
 env
+.tox
+.coverage
 *.egg-info
 
 *.pyc
