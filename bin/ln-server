@@ -6,7 +6,6 @@ from ln import backend
 from ln import server
 
 commands = {
-    'init': backend.init,
     'start': server.start
 }
 

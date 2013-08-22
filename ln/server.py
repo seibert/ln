@@ -4,7 +4,7 @@ import json
 import datetime
 import dateutil.parser
 from flask import Flask
-from flask import request
+from flask import request, make_response, Response
 from ln import __version__
 from ln import backend
 
@@ -28,9 +28,9 @@ def data_to_sse_stream(gen):
 
 @app.route('/')
 def root():
-    '''Get a list of data sources.'''
+    '''Get a list of data series.'''
     data = {
-        'names': storage_backend.get_data_source_list()
+        'names': storage_backend.get_series_list()
     }
 
     return json.dumps(data)
@@ -38,11 +38,17 @@ def root():
 
 @app.route('/create', methods=['POST'])
 def create():
-    '''Create a new data source.'''
+    '''Create a new data series.'''
     f = request.form
-    storage_backend.create_data_source(f['name'], f['type'], f['reduction'],
-                                       f['interpolation'], f['unit'],
-                                       f['description'])
+    storage_backend.create_series(
+            name=f['name'],
+            type=f['type'],
+            reduction=f['reduction'],
+            interpolation=f['interpolation'],
+            unit=f['unit'],
+            description=f['description'],
+            metadata=f['metadata']
+            )
 
     data = {
         'result': 'ok'
@@ -51,14 +57,14 @@ def create():
     return json.dumps(data)
 
 
-@app.route('/data/<source_name>', methods=['GET', 'POST'])
-def data(source_name):
-    '''Get the original values recorded for this data source without
-    resampling, or record a new value for this data source.
+@app.route('/data/<series_name>', methods=['GET', 'POST'])
+def data(series_name):
+    '''Get the original values recorded for this data series without
+    resampling, or record a new value for this data series.
     '''
     if request.method == 'POST':
         try:
-            index, url = storage_backend.add_data(source_name, time, value)
+            index, url = storage_backend.add_data(series_name, time, value)
 
             data = {
                 'index': index
@@ -88,7 +94,7 @@ def data(source_name):
     else:  # GET
         offset = request.args.get('offset', None)
         limit = request.args.get('limit', None)
-        times, values, resume = storage_backend.get_data(source_name,
+        times, values, resume = storage_backend.get_data(series_name,
                                                          offset=offset,
                                                          limit=limit)
 
@@ -103,25 +109,27 @@ def data(source_name):
         return json.dumps(data)
 
 
-@app.route('/data/<source_name>/config', methods=['GET', 'POST'])
-def config(source_name):
-    '''Get or modify configuration information for this data source. Only the
-    unit and description of the source can be changed.
+@app.route('/data/<series_name>/config', methods=['GET', 'POST'])
+def config(series_name):
+    '''Get or modify configuration information for this data series. Only the
+    unit and description of the series can be changed.
     '''
     if request.method == 'POST':
         try:
             unit = request.form['unit']
             description = request.form['description']
+            metadata = request.form['metadata']
         except KeyError, e:
             data = {
                 'result': 'fail',
-                'msg': e
+                'msg': str(e)
             }
 
             return make_response(json.dumps(data), 400)
 
-        storage_backend.update_config(source_name, unit=unit,
-                                      description=description)
+        storage_backend.update_config(series_name, unit=unit,
+                                      description=description,
+                                      metadata=metadata)
 
         data = {
             'result': 'ok',
@@ -130,14 +138,16 @@ def config(source_name):
         return json.dumps(data)
 
     else:  # GET
-        config = storage_backend.get_config(source_name)
-
-        return json.dumps(config)
+        config = storage_backend.get_config(series_name)
+        if config is None:
+            return make_response("Data series not found", 404)
+        else:
+            return json.dumps(config)
 
 
 @app.route('/query')
 def query():
-    '''Resample the selected data sources and return the result. The query
+    '''Resample the selected data series and return the result. The query
     engine may return results with slightly different first and last times, as
     well as a different number of points.
 
@@ -243,9 +253,9 @@ def start(config):
     
     :param config: Configuration definition
     '''
-    global storage_backend 
+    global storage_backend
 
-    print 'Natural log', __version__
+    print 'Natural Log', __version__
 
     storage = config['storage']
     print 'Opening "%s" storage backend...' % storage['backend']
@@ -255,4 +265,3 @@ def start(config):
 
     app.run(host=config['host'], port=config['port'],
             threaded=True, debug=True)
-
