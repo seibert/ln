@@ -180,14 +180,14 @@ Field name  Type               Description
 
 ``GET /query/``
 ------------------
-Resample the selected data sources and return the result.  The query engine may return results with slightly different first and last times, as well as a different number of points.
+Resample the selected data sources and return the result.  The query engine may return results with slightly different first and last times, as well as a different number of points. If ``last`` is omitted, the request is interpreted as a *continuous query* and the requested results and any future results are pushed via a persistent server-sent events (SSE) connection.
 
 =================  =================  ==============================================
 Field name         Type               Description
 =================  =================  ==============================================
 ``selectors``      List of strings    Names of data sources to query, with optional overide of reduction and interpolation strategy.  See :ref:`making-query` for more details.
 ``first``          String             ISO 8601 timestamp of desired first resampling point.
-``last``           String             ISO 8601 timestamp of desired last resampling point.
+``last``           String (Optional)  ISO 8601 timestamp of desired last resampling point.
 ``npoints``        Number             Desired number of data points (including first and last point)
 =================  =================  ==============================================
 
@@ -202,6 +202,21 @@ Field name  Type               Description
 ==========  =================  ==============================================
 ``times``   List of strings    ISO 8601 timestamps of each resampled point.
 ``values``  List of lists      List of resampled points.  See :ref:`making-query` for more details.
+==========  =================  ==============================================
+
+Response (continuous query): Success (200)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Format: *text/event-stream* containing *JSON*-encoded data
+
+Success.
+
+The ``data`` section of each SSE message contains the following in JSON:
+
+==========  =================  ==============================================
+Field name  Type               Description
+==========  =================  ==============================================
+``time``    String             ISO 8601 timestamps of resampled point.
+``value``   List               List of resampled points.  See :ref:`making-query` for more details.
 ==========  =================  ==============================================
 
 Response: Failure (400)

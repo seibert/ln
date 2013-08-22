@@ -1,6 +1,7 @@
 '''Web server functions.'''
 
 import json
+import datetime
 import dateutil.parser
 from flask import Flask
 from flask import request
@@ -9,6 +10,21 @@ from ln import backend
 
 app = Flask('ln')
 storage_backend = None
+
+def data_to_sse_stream(gen):
+    '''Convert a generator of data into a generator of server-sent event
+    messages.
+
+    :param gen: A generator of (time, value) tuples
+    '''
+    for t, v in gen:
+        data = {
+            'time': t,
+            'value': v
+        }
+
+        yield 'data: %s\n\n' % json.dumps(data)
+
 
 @app.route('/')
 def root():
@@ -124,53 +140,102 @@ def query():
     '''Resample the selected data sources and return the result. The query
     engine may return results with slightly different first and last times, as
     well as a different number of points.
+
+    If no end time is provided, the client will be send continuous updates via
+    server-sent events.
     '''
-    try:
-        selectors = request.form['selectors']
-        first = request.form['first']
-        last = request.form['last']
-        npoints = int(request.form['npoints'])
+    if 'first' in request.form:
+        try:
+            selectors = request.form['selectors']
+            first = request.form['first']
+            last = request.form['last']
+            npoints = int(request.form['npoints'])
 
-    except Exception, e:
-        data = {
-            'msg': 'invalid form input: %s' % e
-        }
-
-        return make_response(json.dumps(data), 400)
-
-    if npoints < 2:
-        data = {
-            'msg': 'npoints must be >= 2'
-        }
-
-        return make_response(json.dumps(data), 400)
-
-    try:
-        first_dt = dateutil.parser.parse(request.form['first'])
-        last_dt = dateutil.parser.parse(request.form['last'])
-
-        if first_dt >= last_dt:
+        except Exception, e:
             data = {
-                'msg': 'last time must be greater than first'
+                'msg': 'invalid form input: %s' % e
             }
 
             return make_response(json.dumps(data), 400)
 
-    except ValueError, e:
+        if npoints < 2:
+            data = {
+                'msg': 'npoints must be >= 2'
+            }
+
+            return make_response(json.dumps(data), 400)
+
+        try:
+            first_dt = dateutil.parser.parse(request.form['first'])
+            last_dt = dateutil.parser.parse(request.form['last'])
+
+            if first_dt >= last_dt:
+                data = {
+                    'msg': 'last time must be greater than first'
+                }
+
+                return make_response(json.dumps(data), 400)
+
+        except ValueError, e:
+            data = {
+                    'msg': 'invalid ISO 8601 time specification: %s' % e
+            }
+
+            return make_response(json.dumps(data), 400)
+
+        times, values = storage_backend.query(selectors, first, last, npoints)
+
         data = {
-                'msg': 'invalid ISO 8601 time specification: %s' % e
+            'times': times,
+            'values': values
         }
 
-        return make_response(json.dumps(data), 400)
+        return json.dumps(data)
 
-    times, values = storage_backend.query(selectors, first, last, npoints)
+    else:
+        try:
+            selectors = request.form['selectors']
+            last = request.form['last']
+            npoints = int(request.form['npoints'])
 
-    data = {
-        'times': times,
-        'values': values
-    }
+        except Exception, e:
+            data = {
+                'msg': 'invalid form input: %s' % e
+            }
 
-    return json.dumps(data)
+            return make_response(json.dumps(data), 400)
+
+        if npoints < 2:
+            data = {
+                'msg': 'npoints must be >= 2'
+            }
+
+            return make_response(json.dumps(data), 400)
+
+        try:
+            first_dt = dateutil.parser.parse(request.form['first'])
+            last_dt = datetime.utcnow()
+
+            if first_dt >= last_dt:
+                data = {
+                    'msg': 'last time must be greater than first'
+                }
+
+                return make_response(json.dumps(data), 400)
+
+        except ValueError, e:
+            data = {
+                    'msg': 'invalid ISO 8601 time specification: %s' % e
+            }
+
+            return make_response(json.dumps(data), 400)
+
+        generator = storage_backend.query_continuous(selectors, first, npoints)
+
+        response_generator = data_to_sse_stream(generator)
+
+        return flask.Response(response_generator(),
+                              mimetype='text/event-stream')
 
 
 def start(config):
@@ -188,5 +253,6 @@ def start(config):
 
     print 'Base URL is', config['url_base']
 
-    app.run(host=config['host'], port=config['port'], debug=True)
+    app.run(host=config['host'], port=config['port'],
+            threaded=True, debug=True)
 
