@@ -119,5 +119,5 @@ def get_backend(storage_config):
         return SQLBackend('sqlite://')
     if storage_type == 'sql':
         from ln.backend.sql import SQLBackend
-        return SQLBackend(storage_config)
+        return SQLBackend(storage_config['url'])
 

@@ -12,3 +12,11 @@ class BadTypeError(BackendError):
 
 class TimeOrderError(BackendError):
     pass
+
+
+class SeriesCreationError(BackendError):
+    pass
+
+
+class SeriesUpdateError(BackendError):
+    pass
