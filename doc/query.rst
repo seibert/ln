@@ -5,14 +5,14 @@ The query interface is the key distinguishing feature of Natural Log.  All queri
 
 The basic components of a query are:
 
- * List of data source names
- * Optional resampling strategies for each data source.  (If no resampling
-   strategies are given, the default for the data source is used.)
+ * List of data series names
+ * Optional resampling strategies for each data series.  (If no resampling
+   strategies are given, the default for the data series is used.)
  * Desired time of first point
  * Desired time of last point
  * Desired number of points (must be >= 2)
 
-The result of the query is a 1D array of sample times and a 2D array with the resampled value of each data source (column) at each sample time (row).  To enable storage backends to return results quickly, the actual start and end times, as well as the number of points, returned from the query may be slightly different than the requested values.  How close the query result will match the request depends on the storage backend configuration.
+The result of the query is a 1D array of sample times and a 2D array with the resampled value of each data series (column) at each sample time (row).  To enable storage backends to return results quickly, the actual start and end times, as well as the number of points, returned from the query may be slightly different than the requested values.  How close the query result will match the request depends on the storage backend configuration.
 
 
 How Resampling Works
@@ -22,11 +22,11 @@ Let's suppose we have a time-ordered series of raw data points (floats, in this 
 
 .. image:: raw_points.png
 
-A query comes in asking for 4 data points from t=20 to t=50 seconds.  First, the storage backend decides if it needs to adjust this request for performance reasons.  Assuming it makes no changes to the request, it will need to decide the value of the data source at t=20, 30, 40, and 50 seconds, indicated by the red lines:
+A query comes in asking for 4 data points from t=20 to t=50 seconds.  First, the storage backend decides if it needs to adjust this request for performance reasons.  Assuming it makes no changes to the request, it will need to decide the value of the data series at t=20, 30, 40, and 50 seconds, indicated by the red lines:
 
 .. image:: sample_times.png
 
-To estimate the value of the data source at the given times, the query engine groups the raw data points into equally-spaced bins around each of the evaluation times:
+To estimate the value of the data series at the given times, the query engine groups the raw data points into equally-spaced bins around each of the evaluation times:
 
 .. image:: bins.png
 
@@ -57,7 +57,7 @@ In the above example, suppose the reduction strategy is ``mean`` and the interpo
 Reduction Strategies
 --------------------
 
-A reduction strategy determines how raw values from a data source should be combined when they fall into the same interval during resampling.
+A reduction strategy determines how raw values from a data series should be combined when they fall into the same interval during resampling.
 
 ``closest``
 ```````````
@@ -84,7 +84,7 @@ Report the maximum value in the interval.
 Interpolation Strategies
 ------------------------
 
-An interpolation strategy determines the value of the data source during resampling when no point falls into the interval.
+An interpolation strategy determines the value of the data series during resampling when no point falls into the interval.
 
 ``none``
 ````````
@@ -114,7 +114,7 @@ The examples in this section assume the Natural Log server is running with the c
     url_base = 'http://localhost:6283/'
 
 
-For this example, let's make two new data sources, ``temperature`` and ``humidity``::
+For this example, let's make two new data series, ``temperature`` and ``humidity``::
 
     t = {
         'name' : 'temperature',
@@ -188,9 +188,9 @@ Depending on the particular backend settings, the contents of ``result`` could b
             ]
     }
 
-If a source is an array type, the entries in the ``values`` array will be lists (possibly nested, if the array has multiple dimensions), and if the source is a blob type, the value will be a string containing a URL to retrieve the appropriate blob from the Natural Log server.
+If a series is an array type, the entries in the ``values`` array will be lists (possibly nested, if the array has multiple dimensions), and if the series is a blob type, the value will be a string containing a URL to retrieve the appropriate blob from the Natural Log server.
 
-The default strategies for the sources (``mean`` and ``linear``) were used in the above query, but we can also decide to override them in the selector using the forms ``name:reduction`` (leaving the interpolation strategy to be the default) or ``name:reduction:interpolation`` (overriding both strategies).
+The default strategies for the series (``mean`` and ``linear``) were used in the above query, but we can also decide to override them in the selector using the forms ``name:reduction`` (leaving the interpolation strategy to be the default) or ``name:reduction:interpolation`` (overriding both strategies).
 
 For example, this query::
 
