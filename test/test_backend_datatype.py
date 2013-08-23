@@ -109,6 +109,9 @@ def test_coerce_scalar():
     with pytest.raises(BadTypeError):
         d.coerce('foo')
 
+    with pytest.raises(BadTypeError):
+        d.coerce([1, 2])
+
     d = Datatype('float64')
     assert d.coerce(1.5) == 1.5
     assert d.coerce(1) == 1.0
