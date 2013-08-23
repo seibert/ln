@@ -10,9 +10,28 @@ like syslog.
 **WARNING:** Natural Log is currently practicing "Documentation Driven
 Development," so none of the code exists to do any of this yet.
 
+
 Documentation
 -------------
 
 The full documentation of Natural Log is at:
 
 http://ln.rtfd.org
+
+
+Development
+-----------
+
+Source code and issue tracker are found at GitHub:
+
+http://github.com/seibert/ln
+
+Continuous integration is provided by Travis-CI:
+
+https://travis-ci.org/seibert/ln/builds
+
+
+Authors
+-------
+
+Natural Log is developed by Stan Seibert and Andy Mastbaum.
