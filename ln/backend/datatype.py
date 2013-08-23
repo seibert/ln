@@ -7,6 +7,16 @@ INT_TYPES = set(['int8', 'int16', 'int32', 'int64'])
 FLOAT_TYPES = set(['float32', 'float64'])
 SCALAR_TYPES = INT_TYPES | FLOAT_TYPES
 
+NUMPY_TYPE_MAPPING = dict(
+    int8=np.int8,
+    int16=np.int16,
+    int32=np.int32,
+    int64=np.int64,
+    float32=np.float32,
+    float64=np.float64
+)
+
+
 class Datatype(object):
     '''A representation of a Natural Log datatype'''
 
@@ -63,8 +73,35 @@ class Datatype(object):
 
         Returns True if shapes match.
         '''
-        array = np.array(obj)
+        array = np.asarray(obj)
         return array.shape == self.shape
+
+    def coerce(self, value):
+        '''Convert ``value`` to the canonical Python type represent this
+        datatype.
+
+        Integer types go to ``int``, floating point types go to ``float``,
+        array types go to numpy arrays with the corresponding dtype, and
+        blob types become ``bytes``.
+
+        Raises ``BadTypeError`` if ``value`` cannot be coerced to this
+        datatype.
+        '''
+        try:
+            if self.is_int_scalar():
+                return int(value)
+            elif self.is_float_scalar():
+                return float(value)
+            elif self.is_array():
+                dtype = NUMPY_TYPE_MAPPING[self.base]
+                array = np.asarray(value, dtype=dtype)
+                if array.shape != self.shape:
+                    raise BadTypeError('Cannot coerce value')
+                return array
+            elif self.is_blob():
+                return bytes(value)
+        except (ValueError, TypeError) as e:
+            raise BadTypeError(str(e))
 
 
 def parse_datatype(typestring):

@@ -1,5 +1,5 @@
 from ln.backend.sql import SQLBackend
-from ln.backend.exception import SeriesCreationError, SeriesUpdateError
+from ln.backend.exception import SeriesCreationError, SeriesDoesNotExistError
 import pytest
 
 def test_create():
@@ -53,7 +53,7 @@ def test_get_config_nonexistent():
 
 def test_update_config_nonexistent():
     b = SQLBackend('sqlite://')
-    with pytest.raises(SeriesUpdateError):
+    with pytest.raises(SeriesDoesNotExistError):
         b.update_config('not.there', unit='')
 
 

@@ -49,7 +49,8 @@ class Backend(object):
         '''Adds a point to data series.
 
         :param name: Name of data series
-        :param time: ISO 8601 timestamp of point
+        :param time: timestamp of point
+        :type time: datetime.datetime
         :param value: Data point (type depends on type of series)
 
         Returns the integer sequence number of this new point in the series.'''
@@ -63,7 +64,7 @@ class Backend(object):
         :param limit: Maximum number of points to return.
 
         Returns ``(times, values, resume)`` tuple, where ``times`` is
-        a list of ISO 8601 datetime strings, ``values`` is a list
+        a list of datetime objects, ``values`` is a list
         of values corresponding to those timestamps, and resume is the
         sequence number of the point in the database after the last returned
         point, or None if no more elements (helps with pagination).'''
@@ -75,8 +76,12 @@ class Backend(object):
         :param selectors: List of query selectors, one per data series.
         :param first: Time stamp of earliest data to include.  Note that
                       the database will make a best effort to honor this.
+        :type first: datetime.datetime
+
         :param last: Time stamp of the latest data to include.  Note that
                       the database will make a best effort to honor this.
+        :type laste: datetime.Datetime
+
         :param npoints: Approximate number of summary points to return.
 
         Returns: ``(times, values)``, where ``times`` is a 1D
@@ -93,6 +98,8 @@ class Backend(object):
 
         :param selectors: List of query selectors, one per data series.
         :param first: Time stamp of earliest data to include.
+        :type first: datetime.datetime
+
         :param npoints: Approximate number of points between ``first`` and
                         now to return immediately.
 

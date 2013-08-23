@@ -4,7 +4,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 from ln.backend.base import Backend
-from ln.backend.exception import SeriesCreationError, SeriesUpdateError
+from ln.backend.exception import BackendError, SeriesCreationError, \
+    SeriesDoesNotExistError, SeriesTimeOrderError
 from ln.backend.datatype import parse_datatype
 
 ##### SQLAlchemy tables
@@ -64,16 +65,6 @@ class BlobValues(CommonData, Base):
 
 #####
 
-TYPE_MAPPING = {
-    'int8' : 'int',
-    'int16': 'int',
-    'int32': 'int',
-    'int64': 'int',
-    'float32':'real',
-    'float64':'real',
-}
-
-
 class SQLBackend(Backend):
     '''Backend based on SQLAlchemy'''
 
@@ -126,7 +117,7 @@ class SQLBackend(Backend):
         series = session.query(Series).filter_by(name=name).first()
 
         if series is None:
-            raise SeriesUpdateError('Series %s does not exist.' % name)
+            raise SeriesDoesNotExistError('Series %s does not exist.' % name)
 
         if unit is not None:
             series.unit = unit
@@ -136,3 +127,81 @@ class SQLBackend(Backend):
             series.meta = metadata
 
         session.commit()
+
+    def _pick_table(self, datatype):
+        # select table based on type
+        if datatype.is_int_scalar():
+            return IntValues
+        elif datatype.is_float_scalar():
+            return FloatValues
+        elif datatype.is_array():
+            return ArrayValues
+        elif datatype.is_blob():
+            return BlobValues
+
+    def add_data(self, name, time, value):
+        session = self._sessionmaker()
+        config = session.query(Series.name, Series.type).filter_by(name=name).first()
+
+        if config is None:
+            raise SeriesDoesNotExistError('Series %s does not exist.' % name)
+
+        datatype = parse_datatype(config.type)
+        value = datatype.coerce(value)
+        table = self._pick_table(datatype)
+
+        # get last entry for this series (if exists)
+        last_entry = session.query(table.timestamp, table.sequence) \
+            .filter_by(name=name).order_by(table.timestamp.desc()).first()
+
+        # compute new sequence number
+        if last_entry is None:
+            sequence = 0
+        else:
+            if last_entry.timestamp > time:
+                raise SeriesTimeOrderError('New data point is chronologically before last point in series')
+            sequence = last_entry.sequence + 1
+
+        # create new entry
+        entry = table(name=name, sequence=sequence, timestamp=time,
+            value=value)
+        session.add(entry)
+        session.commit()
+
+    def get_data(self, name, offset=None, limit=None):
+        session = self._sessionmaker()
+        config = session.query(Series.name, Series.type).filter_by(name=name).first()
+
+        if config is None:
+            raise SeriesDoesNotExistError('Series %s does not exist.' % name)
+
+        datatype = parse_datatype(config.type)
+        table = self._pick_table(datatype)
+
+        query = session.query(table.sequence, table.timestamp, table.value)\
+            .filter_by(name=name)
+
+        if offset == None:  # get last entry
+            row = query.order_by(table.sequence.desc()).first()
+            return [row.timestamp], [row.value], None
+        else:
+            query = query.order_by(table.sequence)
+            if limit is None:
+                rows = query[offset:]
+                next_offset = None
+            else:
+                rows = query[offset:offset + limit + 1]
+                if len(rows) > limit:
+                    next_offset = rows[-1].sequence
+                else:
+                    next_offset = None
+                rows = rows[:limit]
+
+            times = []
+            values = []
+
+            for row in rows:
+                times.append(row.timestamp)
+                values.append(row.value)
+
+            return times, values, next_offset

@@ -18,5 +18,9 @@ class SeriesCreationError(BackendError):
     pass
 
 
-class SeriesUpdateError(BackendError):
+class SeriesDoesNotExistError(BackendError):
+    pass
+
+
+class SeriesTimeOrderError(BackendError):
     pass

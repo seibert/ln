@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from ln.backend.exception import BadTypeError
 from ln.backend.datatype import parse_datatype, Datatype
 
@@ -97,3 +98,47 @@ def test_check_shape():
     assert not d.check_shape([1, 2, 3])
     assert d.check_shape([[1, 2, 3], [4, 5, 6]])
     assert not d.check_shape([[1, 2], [3, 4], [5, 6]])
+
+
+def test_coerce_scalar():
+    d = Datatype('int32')
+    assert d.coerce(1) == 1
+    assert d.coerce(1.5) == 1
+    assert d.coerce(np.int8(1)) == 1
+
+    with pytest.raises(BadTypeError):
+        d.coerce('foo')
+
+    d = Datatype('float64')
+    assert d.coerce(1.5) == 1.5
+    assert d.coerce(1) == 1.0
+    assert d.coerce(np.float32(1.5)) == 1.5
+
+    with pytest.raises(BadTypeError):
+        d.coerce('foo')
+
+
+def array_equal_with_dtype(a, b):
+    '''Returns true if the contents of a and b are the same, as well
+    as the dtypes.'''
+    return a.dtype == b.dtype and np.array_equal(a, b)
+
+
+def test_coerce_array():
+    d = Datatype('int32', shape=(2,))
+    assert array_equal_with_dtype(d.coerce((1, 2)),
+        np.array([1, 2], dtype=np.int32))
+
+    assert array_equal_with_dtype(d.coerce((1.5, 2)),
+        np.array([1, 2], dtype=np.int32))
+
+    assert array_equal_with_dtype(d.coerce(np.array([1.5, 2], dtype=np.float32)),
+        np.array([1, 2], dtype=np.int32))
+
+    with pytest.raises(BadTypeError):
+        d.coerce((1.5, 2, 3))
+
+
+def test_coerce_blob():
+    d = Datatype('blob', mimetype='text/plain')
+    assert d.coerce(b'foo') == b'foo'
