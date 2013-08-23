@@ -15,7 +15,7 @@ sample_config = dict(
 
 
 @pytest.fixture
-def app(request):
+def app():
     ln.server.app.config['TESTING'] = True
     ln.server.storage_backend = get_backend({'backend': 'memory'})
     return ln.server.app.test_client()

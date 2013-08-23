@@ -3,17 +3,21 @@
 import json
 import datetime
 import dateutil.parser
-from flask import Flask, request, make_response, Response, jsonify
+from flask import Flask, request, make_response, jsonify
 from ln import __version__
 from ln import backend
+from ln.backend.exception import BadTypeError, SeriesDoesNotExistError, \
+    SeriesTimeOrderError
 
 app = Flask('ln')
 storage_backend = None
+
 
 def jsonify_with_status_code(status_code, *args, **kwargs):
     response = jsonify(*args, **kwargs)
     response.status_code = status_code
     return response
+
 
 def data_to_sse_stream(gen):
     '''Convert a generator of data into a generator of server-sent event
@@ -68,41 +72,45 @@ def data(series_name):
     '''
     if request.method == 'POST':
         try:
-            index, url = storage_backend.add_data(series_name, time, value)
+            time = dateutil.parser.parse(request.form['time'])
+            value = json.loads(request.form['value'])
 
-            data = {
-                'index': index
-            }
+            print value
 
-            if url is not None:
-                data['url'] = url
-
+            index = storage_backend.add_data(series_name, time, value)
+            url = app.config['url_base'] + '/data/%s/%d' % (series_name, index)
+            data = dict(index=index, url=url)
             return jsonify(**data)
 
-        except TimeOrderError as e:
-            data = {
-                'type': 'time_order',
-                'msg': e
-            }
+        except SeriesDoesNotExistError as e:
+            return jsonify_with_status_code(404)
 
+        except SeriesTimeOrderError as e:
+            data = dict(type='time_order', msg=str(e))
             return jsonify_with_status_code(400, **data)
 
         except BadTypeError as e:
-            data = {
-                'type': 'bad_type',
-                'msg': e
-            }
+            data = dict(type='bad_type', msg=str(e))
             return jsonify_with_status_code(400, **data)
 
     else:  # GET
         offset = request.args.get('offset', None)
         limit = request.args.get('limit', None)
-        times, values, resume = storage_backend.get_data(series_name,
-                                                         offset=offset,
-                                                         limit=limit)
+
+        if offset is not None:
+            offset = int(offset)
+        if limit is not None:
+            limit = int(limit)
+
+        try:
+            times, values, resume = storage_backend.get_data(series_name,
+                                                             offset=offset,
+                                                             limit=limit)
+        except SeriesDoesNotExistError as e:
+            return jsonify_with_status_code(404)
 
         data = {
-            'times': times,
+            'times': [t.isoformat() for t in times],
             'values': values,
         }
 
@@ -264,6 +272,7 @@ def start(config):
     print('Opening "%s" storage backend...' % storage['backend'])
     storage_backend = backend.get_backend(storage)
 
+    app.config['url_base'] = ['url_base']
     print('Base URL is', config['url_base'])
 
     app.run(host=config['host'], port=config['port'],
