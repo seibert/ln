@@ -167,6 +167,7 @@ class SQLBackend(Backend):
             value=value)
         session.add(entry)
         session.commit()
+        return sequence
 
     def get_data(self, name, offset=None, limit=None):
         session = self._sessionmaker()
