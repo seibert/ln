@@ -75,8 +75,6 @@ def data(series_name):
             time = dateutil.parser.parse(request.form['time'])
             value = json.loads(request.form['value'])
 
-            print value
-
             index = storage_backend.add_data(series_name, time, value)
             url = app.config['url_base'] + '/data/%s/%d' % (series_name, index)
             data = dict(index=index, url=url)

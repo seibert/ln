@@ -203,6 +203,5 @@ def test_add_wrong_order(app):
 def test_add_bad_type(app):
     data = dict(time=datetime.now().isoformat(), value='[1, 2]')
     response, code = get_json_and_status(app.post('/data/int', data=data))
-    print response
     assert code == 400
     assert response['type'] == 'bad_type'
