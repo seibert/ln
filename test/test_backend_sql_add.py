@@ -1,5 +1,6 @@
 from ln.backend.sql import SQLBackend
-from ln.backend.exception import SeriesDoesNotExistError, SeriesTimeOrderError
+from ln.backend.exception import BadTypeError, SeriesDoesNotExistError, \
+    SeriesTimeOrderError
 from datetime import datetime, timedelta
 import pytest
 import numpy as np
@@ -105,7 +106,8 @@ def test_add_int(backend):
     times = []
     for i in range(10):
         times.append(datetime.now())
-        b.add_data('int', times[-1], i)
+        index = b.add_data('int', times[-1], i)
+        assert index == i
 
     db_times, db_values, next_seq = b.get_data('int', 0)
     assert times == db_times
@@ -118,7 +120,8 @@ def test_add_float(backend):
     times = []
     for i in range(10):
         times.append(datetime.now())
-        b.add_data('float', times[-1], i + 0.5)
+        index = b.add_data('float', times[-1], i + 0.5)
+        assert index == i
 
     db_times, db_values, next_seq = b.get_data('float', 0)
     assert times == db_times
@@ -133,7 +136,8 @@ def test_add_array(backend):
     for i in range(10):
         times.append(datetime.now())
         values.append(np.array(range(4)) * i)
-        b.add_data('array', times[-1], values[-1])
+        index = b.add_data('array', times[-1], values[-1])
+        assert index == i
 
     db_times, db_values, next_seq = b.get_data('array', 0)
     assert times == db_times
@@ -148,7 +152,8 @@ def test_add_blob(backend):
     for i in range(10):
         times.append(datetime.now())
         values.append(b'-' * 10)
-        b.add_data('blob', times[-1], values[-1])
+        index = b.add_data('blob', times[-1], values[-1])
+        assert index == i
 
     db_times, db_values, next_seq = b.get_data('blob', 0)
     assert times == db_times
@@ -163,3 +168,9 @@ def test_add_wrong_order(backend):
     b.add_data('int', now, 1)
     with pytest.raises(SeriesTimeOrderError):
         b.add_data('int', now - timedelta(hours=1), 2)
+
+
+def test_add_bad_type(backend):
+    b = backend
+    with pytest.raises(BadTypeError):
+        b.add_data('int', datetime.now, [1, 2])
