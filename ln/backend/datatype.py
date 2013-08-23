@@ -3,7 +3,9 @@
 from ln.backend.exception import BadTypeError
 import numpy as np
 
-SCALAR_TYPES = set(['int8', 'int16', 'int32', 'int64', 'float32', 'float64'])
+INT_TYPES = set(['int8', 'int16', 'int32', 'int64'])
+FLOAT_TYPES = set(['float32', 'float64'])
+SCALAR_TYPES = INT_TYPES | FLOAT_TYPES
 
 class Datatype(object):
     '''A representation of a Natural Log datatype'''
@@ -34,6 +36,16 @@ class Datatype(object):
     def is_scalar(self):
         '''Return true if this is a scalar type'''
         return self.shape is None and self.mimetype is None
+
+    def is_int_scalar(self):
+        '''Return true if this is an integer scalar type'''
+        return self.base in INT_TYPES and self.shape is None \
+            and self.mimetype is None
+
+    def is_float_scalar(self):
+        '''Return true if this is an floating point scalar type'''
+        return self.base in FLOAT_TYPES and self.shape is None \
+            and self.mimetype is None
 
     def is_array(self):
         '''Return true if this is an array type.'''
