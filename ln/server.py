@@ -3,13 +3,17 @@
 import json
 import datetime
 import dateutil.parser
-from flask import Flask
-from flask import request, make_response, Response
+from flask import Flask, request, make_response, Response, jsonify
 from ln import __version__
 from ln import backend
 
 app = Flask('ln')
 storage_backend = None
+
+def jsonify_with_status_code(status_code, *args, **kwargs):
+    response = jsonify(*args, **kwargs)
+    response.status_code = status_code
+    return response
 
 def data_to_sse_stream(gen):
     '''Convert a generator of data into a generator of server-sent event
@@ -33,7 +37,7 @@ def root():
         'names': storage_backend.get_series_list()
     }
 
-    return json.dumps(data)
+    return jsonify(data)
 
 
 @app.route('/create', methods=['POST'])
@@ -54,7 +58,7 @@ def create():
         'result': 'ok'
     }
 
-    return json.dumps(data)
+    return jsonify(data)
 
 
 @app.route('/data/<series_name>', methods=['GET', 'POST'])
@@ -73,23 +77,22 @@ def data(series_name):
             if url is not None:
                 data['url'] = url
 
-            return json.dumps(data)
+            return jsonify(**data)
 
-        except TimeOrderError, e:
+        except TimeOrderError as e:
             data = {
                 'type': 'time_order',
                 'msg': e
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
-        except BadTypeError, e:
+        except BadTypeError as e:
             data = {
                 'type': 'bad_type',
                 'msg': e
             }
-
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
     else:  # GET
         offset = request.args.get('offset', None)
@@ -106,7 +109,7 @@ def data(series_name):
         if resume is not None:
             data['resume'] = resume
 
-        return json.dumps(data)
+        return jsonify(**data)
 
 
 @app.route('/data/<series_name>/config', methods=['GET', 'POST'])
@@ -119,13 +122,13 @@ def config(series_name):
             unit = request.form['unit']
             description = request.form['description']
             metadata = request.form['metadata']
-        except KeyError, e:
+        except KeyError as e:
             data = {
                 'result': 'fail',
                 'msg': str(e)
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
         storage_backend.update_config(series_name, unit=unit,
                                       description=description,
@@ -135,14 +138,14 @@ def config(series_name):
             'result': 'ok',
         }
 
-        return json.dumps(data)
+        return jsonify(**data)
 
     else:  # GET
         config = storage_backend.get_config(series_name)
         if config is None:
             return make_response("Data series not found", 404)
         else:
-            return json.dumps(config)
+            return jsonify(**config)
 
 
 @app.route('/query')
@@ -161,19 +164,19 @@ def query():
             last = request.form['last']
             npoints = int(request.form['npoints'])
 
-        except Exception, e:
+        except Exception as e:
             data = {
                 'msg': 'invalid form input: %s' % e
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
         if npoints < 2:
             data = {
                 'msg': 'npoints must be >= 2'
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
         try:
             first_dt = dateutil.parser.parse(request.form['first'])
@@ -184,9 +187,9 @@ def query():
                     'msg': 'last time must be greater than first'
                 }
 
-                return make_response(json.dumps(data), 400)
+                return jsonify_with_status_code(400, **data)
 
-        except ValueError, e:
+        except ValueError as e:
             data = {
                     'msg': 'invalid ISO 8601 time specification: %s' % e
             }
@@ -200,7 +203,7 @@ def query():
             'values': values
         }
 
-        return json.dumps(data)
+        return jsonify(data)
 
     else:
         try:
@@ -208,19 +211,19 @@ def query():
             last = request.form['last']
             npoints = int(request.form['npoints'])
 
-        except Exception, e:
+        except Exception as e:
             data = {
                 'msg': 'invalid form input: %s' % e
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
         if npoints < 2:
             data = {
                 'msg': 'npoints must be >= 2'
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
         try:
             first_dt = dateutil.parser.parse(request.form['first'])
@@ -231,14 +234,14 @@ def query():
                     'msg': 'last time must be greater than first'
                 }
 
-                return make_response(json.dumps(data), 400)
+                return jsonify_with_status_code(400, **data)
 
-        except ValueError, e:
+        except ValueError as e:
             data = {
                     'msg': 'invalid ISO 8601 time specification: %s' % e
             }
 
-            return make_response(json.dumps(data), 400)
+            return jsonify_with_status_code(400, **data)
 
         generator = storage_backend.query_continuous(selectors, first, npoints)
 
@@ -255,13 +258,13 @@ def start(config):
     '''
     global storage_backend
 
-    print 'Natural Log', __version__
+    print('Natural Log', __version__)
 
     storage = config['storage']
-    print 'Opening "%s" storage backend...' % storage['backend']
+    print('Opening "%s" storage backend...' % storage['backend'])
     storage_backend = backend.get_backend(storage)
 
-    print 'Base URL is', config['url_base']
+    print('Base URL is', config['url_base'])
 
     app.run(host=config['host'], port=config['port'],
             threaded=True, debug=True)
