@@ -157,7 +157,7 @@ def test_add_blob(backend):
 
     db_times, db_values, next_seq = b.get_data('blob', 0)
     assert times == db_times
-    assert values == db_values
+    assert values == [b.get_bytes() for b in db_values]
     assert next_seq is None
 
 

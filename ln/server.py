@@ -3,9 +3,10 @@
 import json
 import datetime
 import dateutil.parser
-from flask import Flask, request, make_response, jsonify
+from flask import Flask, request, make_response, jsonify, Response
 from ln import __version__
 from ln import backend
+from ln.backend.base import Blob
 from ln.backend.exception import BadTypeError, SeriesDoesNotExistError, \
     SeriesTimeOrderError
 
@@ -65,6 +66,10 @@ def create():
     return jsonify(data)
 
 
+def make_url(series_name, index):
+    return app.config['url_base'] + '/data/%s/%d' % (series_name, index)
+
+
 @app.route('/data/<series_name>', methods=['GET', 'POST'])
 def data(series_name):
     '''Get the original values recorded for this data series without
@@ -73,10 +78,13 @@ def data(series_name):
     if request.method == 'POST':
         try:
             time = dateutil.parser.parse(request.form['time'])
-            value = json.loads(request.form['value'])
+            if 'value' in request.files:
+                value = request.files['value'].read()
+            else:
+                value = json.loads(request.form['value'])
 
             index = storage_backend.add_data(series_name, time, value)
-            url = app.config['url_base'] + '/data/%s/%d' % (series_name, index)
+            url = make_url(series_name, index)
             data = dict(index=index, url=url)
             return jsonify(**data)
 
@@ -107,15 +115,43 @@ def data(series_name):
         except SeriesDoesNotExistError as e:
             return jsonify_with_status_code(404)
 
-        data = {
-            'times': [t.isoformat() for t in times],
-            'values': values,
-        }
+        data = dict(times=[t.isoformat() for t in times])
+
+        if len(values) > 0 and isinstance(values[0], Blob):
+            data['values'] = [make_url(series_name, b.index) for b in
+                values]
+        else:
+            data['values'] = values
 
         if resume is not None:
             data['resume'] = resume
-
         return jsonify(**data)
+
+
+@app.route('/data/<series_name>/<id>', methods=['GET'])
+def get(series_name, id):
+    '''Return just the value corresponding to a particular index number.
+    Primarily used to fetch blobs.'''
+
+    id = int(id)
+
+    try:
+        times, values, resume = storage_backend.get_data(series_name,
+                                                         offset=id,
+                                                         limit=1)
+    except SeriesDoesNotExistError:
+        return jsonify_with_status_code(404)
+
+    if len(times) == 0:
+        return jsonify_with_status_code(404)
+
+    value = values[0]
+    if isinstance(value, Blob):
+        response = Response(mimetype=value.mimetype)
+        response.set_data(value.get_bytes())
+        return response
+    else:
+        return jsonify(value)
 
 
 @app.route('/data/<series_name>/config', methods=['GET', 'POST'])

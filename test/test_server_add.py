@@ -6,6 +6,12 @@ import numpy as np
 import json
 
 
+try:  # Python 2
+    from StringIO import StringIO as BytesIO
+except ImportError:  # Python 3
+    from io import BytesIO
+
+
 @pytest.fixture
 def app(request):
     ln.server.app.config['TESTING'] = True
@@ -171,19 +177,34 @@ def test_add_array(app):
     assert next_seq is None
 
 
-@pytest.mark.xfail
 def test_add_blob(app):
-    b = backend
+    b = ln.server.storage_backend
     times = []
     values = []
+    urls = []
     for i in range(10):
         times.append(datetime.now())
         values.append(b'-' * 10)
-        b.add_data('blob', times[-1], values[-1])
+
+        byte_source = BytesIO(values[-1])
+        data = dict(time=times[-1].isoformat(), value=(byte_source, 'file'))
+        response, code = get_json_and_status(app.post('/data/blob', data=data))
+        assert code == 200
+        assert response['index'] == i
+        assert response['url'] == '/data/blob/%d' % i
+        urls.append(response['url'])
+
+    # Test fetching last blob
+    response, code = get_json_and_status(app.get('/data/blob'))
+    assert code == 200
+    assert response['values'][0] == '/data/blob/9'
+    response = app.get('/data/blob/9')
+    assert response.data == values[9]
+    assert response.mimetype == 'text/plain'
 
     db_times, db_values, next_seq = b.get_data('blob', 0)
     assert times == db_times
-    assert values == db_values
+    assert np.array_equal(range(10), [b.index for b in db_values])  # Index numbers
     assert next_seq is None
 
 

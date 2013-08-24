@@ -3,8 +3,8 @@ from sqlalchemy import create_engine, Column, Integer, String, \
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from ln.backend.base import Backend
-from ln.backend.exception import BackendError, SeriesCreationError, \
+from ln.backend.base import Backend, Blob
+from ln.backend.exception import SeriesCreationError, \
     SeriesDoesNotExistError, SeriesTimeOrderError
 from ln.backend.datatype import parse_datatype
 
@@ -64,6 +64,20 @@ class BlobValues(CommonData, Base):
 
 
 #####
+
+class SQLBlob(Blob):
+    '''A blob stored in the SQL database'''
+
+    def __init__(self, index, mimetype, series_name, backend):
+        super(SQLBlob, self).__init__(index, mimetype)
+        self.series_name = series_name
+        self._backend = backend
+
+    def get_bytes(self):
+        session = self._backend._sessionmaker()
+        return session.query(BlobValues.value).filter_by(name=self.series_name,
+            sequence=self.index).first().value
+
 
 class SQLBackend(Backend):
     '''Backend based on SQLAlchemy'''
@@ -179,12 +193,21 @@ class SQLBackend(Backend):
         datatype = parse_datatype(config.type)
         table = self._pick_table(datatype)
 
-        query = session.query(table.sequence, table.timestamp, table.value)\
-            .filter_by(name=name)
+        if datatype.is_blob():
+            query = session.query(table.sequence, table.timestamp)\
+                .filter_by(name=name)
+        else:
+            query = session.query(table.sequence, table.timestamp, table.value)\
+                .filter_by(name=name)
 
         if offset == None:  # get last entry
             row = query.order_by(table.sequence.desc()).first()
-            return [row.timestamp], [row.value], None
+            if datatype.is_blob():
+                value = SQLBlob(index=row.sequence, mimetype=datatype.mimetype,
+                    series_name=name, backend=self)
+            else:
+                value = row.value
+            return [row.timestamp], [value], None
         else:
             query = query.order_by(table.sequence)
             if limit is None:
@@ -203,6 +226,12 @@ class SQLBackend(Backend):
 
             for row in rows:
                 times.append(row.timestamp)
-                values.append(row.value)
+                if datatype.is_blob():
+                    value = SQLBlob(index=row.sequence,
+                        mimetype=datatype.mimetype,
+                        series_name=name, backend=self)
+                else:
+                    value = row.value
+                values.append(value)
 
             return times, values, next_offset

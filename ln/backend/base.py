@@ -1,6 +1,21 @@
 '''Interface for storage backends.'''
 from ln.backend.exception import BackendError
 
+class Blob(object):
+    '''Base class that represents a blob object in the database.'''
+
+    def __init__(self, index, mimetype):
+        self.index = index
+        self.mimetype = mimetype
+
+    def get_bytes(self):
+        '''Returns the contents of a blob.
+
+        Do not fetch the contents of the blob before this function is called!
+        '''
+        raise BackendError('Cannot call get_bytes on base class.')
+
+
 class Backend(object):
     '''A storage backend interface.'''
     def __init__(self):
@@ -58,7 +73,7 @@ class Backend(object):
 
     def get_data(self, name, offset=None, limit=None):
         '''Get raw data points.
-        
+
         :param name: Name of data series
         :param offset: Sequence number of first data point to return.
         :param limit: Maximum number of points to return.
@@ -72,7 +87,7 @@ class Backend(object):
 
     def query(self, selectors, first, last, npoints):
         '''Query the database between the given time interval.
-        
+
         :param selectors: List of query selectors, one per data series.
         :param first: Time stamp of earliest data to include.  Note that
                       the database will make a best effort to honor this.
@@ -117,7 +132,7 @@ class Backend(object):
 
 def get_backend(storage_config):
     '''Find/build a backend based on the configuration.
-    
+
     :param config: storage section of the configuration
     '''
     storage_type = storage_config['backend']
@@ -127,4 +142,3 @@ def get_backend(storage_config):
     if storage_type == 'sql':
         from ln.backend.sql import SQLBackend
         return SQLBackend(storage_config['url'])
-

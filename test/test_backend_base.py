@@ -1,6 +1,6 @@
 import pytest
 from ln.backend.exception import BackendError
-from ln.backend.base import Backend, get_backend
+from ln.backend.base import Blob, Backend, get_backend
 
 
 def test_base_exceptions():
@@ -33,3 +33,9 @@ def test_get_backend_sql(tmpdir):
     url = 'sqlite:///' + str(tmpdir.join('test.sqlite'))
     b = get_backend({'backend': 'sql', 'url': url})
     assert len(b.get_series_list()) == 0
+
+
+def test_blob_exception():
+    blob = Blob(index=1, mimetype='text/plain')
+    with pytest.raises(BackendError):
+        blob.get_bytes()
