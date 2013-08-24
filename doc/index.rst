@@ -12,7 +12,7 @@ Natural Log (ln for short) is a time series database with a REST API.  The datab
 
 The key feature of Natural Log is its support for *resampling queries*.  In such queries, the server takes the raw, irregularly-spaced time series and returns a new time series with equally spaced intervals of (approximately) the requested size.  This can be used to reduce a time series sampled very finely to one sampled much more coarsely without having to transfer a large amount of data to a plotting client.  Moreover, two time series *(t,x)* and *(t,y)* can be more easily joined to create an *(x,y)* series if the time series first can be resampled to the same points in time.
 
-Different resampling strategies are required for different applications, so Natural Log allows both the reduction (used to combine raw points) and interpolation (used between raw points) strategies to be selected as part of the query.  See :ref:`reduction` and :ref:`interpolation` for more information.
+Different resampling strategies are required for different applications, so Natural Log allows both the reduction (used to combine raw points) and interpolation (used between reduced points) strategies to be selected as part of the query.  See :ref:`reduction` and :ref:`interpolation` for more information.
 
 
 Contents

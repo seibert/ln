@@ -1,7 +1,7 @@
 Data Series
 ============
 
-A data series is a typed quantity that changes over time.  Each data series has a name, a data type, a default reduction strategy, and a default interpolation strategy.  Most data series are scalar types, such as integers and floating point values, but can also be array types or binary blobs.  Data series may also optionally have a unit or a description.
+A data series is a typed quantity that changes over time.  Each data series has a name, a data type, a default reduction strategy, and a default interpolation strategy.  Most data series are scalar types, such as integers and floating point values, but can also be array types or binary blobs.  Data series may also optionally have a unit, a description, or application-specific metadata.
 
 Data Series Attributes
 ----------------------
@@ -66,10 +66,16 @@ The handling of data points when resampling the time series in a query is contro
 Although any strategy can be selected in the query (except in the case of blob types), many data series naturally fit only one pair of resampling strategies.  For this reason, when creating a data series, a default reduction and interpolation strategy must be selected.
 
 
-Series Description and Unit
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Series Description, Unit and Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The description of a data series is an optional free-form text field that can be displayed in user-facing interfaces to Natural Log.  The unit describes the physical unit (kg, m, deg F, etc) of the values recorded for the data series.  The unit is not used for calculation purposes, but may also be shown to users in interfaces to Natural Log data.
+
+The metadata field is another free-form text field that can be used for
+specific applications.  Unlike the description field, the metadata field
+should not be shown directly to users.  As an example, an array series that
+holds the bins of a histogram can use the metadata field to store the bin
+boundaries of the histogram for use by display applications.
 
 
 .. _create-series:

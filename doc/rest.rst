@@ -21,7 +21,7 @@ Field name  Type              Description
 ==========  ================  ==============================================
 
 
-``POST /create/``
+``POST /create``
 -----------------
 Create a new data series.
 
@@ -38,10 +38,11 @@ Field name         Type               Description
 ``interpolation``  String             Name of interpolation strategy. See :ref:`interpolation` for more information.
 ``unit``           String             Unit of measure.  May be empty string.
 ``description``    String             Description of data series.  May be empty string.
+``metadata``       String             Application-specific metadata about this series.  Unlike ``description``, this is not intended to be shown to users.
 =================  =================  ==============================================
 
 
-``GET /data/[series name]/``
+``GET /data/[series name]``
 ----------------------------
 Get the original values recorded for this data series, without resampling.
 
@@ -51,7 +52,7 @@ URL Options
 ==============  ==============================================
 Parameter Name  Description
 ==============  ==============================================
-``offset``      Index number of data point to start with
+``offset``      Index number of data point to start with.
 ``limit``       Maximum number of points to return.  Server may impose a smaller maximum.
 ==============  ==============================================
 
@@ -70,8 +71,32 @@ Field name  Type               Description
 ``resume``  Number (optional)  If maximum # of returned values reached, this is the value to pass to the ``offset`` parameter on the next ``GET`` call to continue.
 ==========  =================  ==============================================
 
+Response: Failure (404)
+^^^^^^^^^^^^^^^^^^^^^^^
 
-``POST /data/[series name]/``
+Series does not exist.
+
+
+``GET /data/[series name]/[index]``
+-----------------------------------
+Get a single raw value from a series.  This is primarily used to fetch the contents of a blob with the mimetype set in the response.
+
+URL Options
+^^^^^^^^^^^
+
+None.
+
+Response (200)
+^^^^^^^^^^^^^^
+Format: Raw binary w/ mimetype
+
+Response: Failure (404)
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Series or index number does not exist.
+
+
+``POST /data/[series name]``
 -----------------------------
 Record a new value for this data series.
 
@@ -101,6 +126,11 @@ Field name  Type               Description
 ``url``     String (optional)  If a blob data series, the URL for the newly recorded binary data.
 ==========  =================  ==============================================
 
+Response: Failure (404)
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Series does not exist.
+
 Response: Failure (400)
 ^^^^^^^^^^^^^^^^^^^^^^^
 Format: *JSON*
@@ -117,7 +147,7 @@ Field name  Type               Description
 ==========  =================  ==============================================
 
 
-``GET /data/[series name]/config/``
+``GET /data/[series name]/config``
 -----------------------------------
 Get the configuration information for this data series.
 
@@ -137,7 +167,7 @@ Field name         Type               Description
 =================  =================  ==============================================
 
 
-``POST /data/[series name]/config/``
+``POST /data/[series name]/config``
 ------------------------------------
 Modify the configuration information for this data series.  Only the unit and description of the series can be changed this way.
 
@@ -150,6 +180,7 @@ Field name         Type               Description
 =================  =================  ==============================================
 ``unit``           String             Unit of measure.  May be empty string.
 ``description``    String             Description of data series.  May be empty string.
+``metadata``       String             Description of data series.  May be empty string.
 =================  =================  ==============================================
 
 Response: Success (200)
@@ -163,6 +194,11 @@ Field name  Type               Description
 ==========  =================  ==============================================
 ``result``  String             Contains ``ok`` on success.
 ==========  =================  ==============================================
+
+Response: Failure (404)
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Series does not exist.
 
 Response: Failure (400)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -178,7 +214,7 @@ Field name  Type               Description
 ==========  =================  ==============================================
 
 
-``GET /query/``
+``GET /query``
 ------------------
 Resample the selected data series and return the result.  The query engine may return results with slightly different first and last times, as well as a different number of points. If ``last`` is omitted, the request is interpreted as a *continuous query* and the requested results and any future results are pushed via a persistent server-sent events (SSE) connection.
 
