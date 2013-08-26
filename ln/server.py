@@ -3,12 +3,15 @@
 import json
 import datetime
 import dateutil.parser
+from itertools import chain
 from flask import Flask, request, make_response, jsonify, Response
+
 from ln import __version__
 from ln import backend
 from ln.backend.base import Blob
 from ln.backend.exception import BadTypeError, SeriesDoesNotExistError, \
     SeriesTimeOrderError
+
 
 app = Flask('ln')
 storage_backend = None
@@ -20,18 +23,16 @@ def jsonify_with_status_code(status_code, *args, **kwargs):
     return response
 
 
-def data_to_sse_stream(gen):
+def data_to_sse_stream(intial_times, initial_values, gen):
     '''Convert a generator of data into a generator of server-sent event
     messages.
 
-    :param gen: A generator of (time, value) tuples
+    :param intial_times: Initial array of times for query
+    :param intial_values: Initial array of series values
+    :param gen: A generator of new (times, values) tuples
     '''
-    for t, v in gen:
-        data = {
-            'time': t,
-            'value': v
-        }
-
+    for times, values in chain([(times, values)], gen):
+        data = dict(times=[t.isoformat() for t in times], values=values)
         yield 'data: %s\n\n' % json.dumps(data)
 
 
@@ -150,8 +151,10 @@ def get(series_name, id):
         response = Response(mimetype=value.mimetype)
         response.set_data(value.get_bytes())
         return response
+    elif hasattr(value, '__len__'):  # list-like
+        return json.dumps(value.tolist())  # jsonify does not like non-dict
     else:
-        return jsonify(value)
+        return str(value)
 
 
 @app.route('/data/<series_name>/config', methods=['GET', 'POST'])
@@ -199,98 +202,51 @@ def query():
     If no end time is provided, the client will be send continuous updates via
     server-sent events.
     '''
-    if 'first' in request.form:
-        try:
-            selectors = request.form['selectors']
-            first = request.form['first']
-            last = request.form['last']
-            npoints = int(request.form['npoints'])
-
-        except Exception as e:
-            data = {
-                'msg': 'invalid form input: %s' % e
-            }
-
-            return jsonify_with_status_code(400, **data)
-
-        if npoints < 2:
-            data = {
-                'msg': 'npoints must be >= 2'
-            }
-
-            return jsonify_with_status_code(400, **data)
-
-        try:
-            first_dt = dateutil.parser.parse(request.form['first'])
-            last_dt = dateutil.parser.parse(request.form['last'])
-
-            if first_dt >= last_dt:
-                data = {
-                    'msg': 'last time must be greater than first'
-                }
-
-                return jsonify_with_status_code(400, **data)
-
-        except ValueError as e:
-            data = {
-                    'msg': 'invalid ISO 8601 time specification: %s' % e
-            }
-
-            return make_response(json.dumps(data), 400)
-
-        times, values = storage_backend.query(selectors, first, last, npoints)
-
-        data = {
-            'times': times,
-            'values': values
-        }
-
-        return jsonify(data)
-
+    if 'last' not in request.args:
+        continuous = True
+        last = datetime.now().isoformat()
     else:
-        try:
-            selectors = request.form['selectors']
-            last = request.form['last']
-            npoints = int(request.form['npoints'])
+        continuous = False
 
-        except Exception as e:
-            data = {
-                'msg': 'invalid form input: %s' % e
-            }
+    try:
+        selectors = request.args.getlist('selector')
+        first = request.args['first']
+        last = request.args['last']
+        npoints = int(request.args['npoints'])
 
-            return jsonify_with_status_code(400, **data)
+    except Exception as e:
+        data = dict(msg='invalid query: %s' % e)
 
-        if npoints < 2:
-            data = {
-                'msg': 'npoints must be >= 2'
-            }
+        return jsonify_with_status_code(400, **data)
 
-            return jsonify_with_status_code(400, **data)
+    if npoints < 2:
+        data = dict(msg='npoints must be >= 2')
 
-        try:
-            first_dt = dateutil.parser.parse(request.form['first'])
-            last_dt = datetime.utcnow()
+        return jsonify_with_status_code(400, **data)
 
-            if first_dt >= last_dt:
-                data = {
-                    'msg': 'last time must be greater than first'
-                }
+    try:
+        first_dt = dateutil.parser.parse(first)
+        last_dt = dateutil.parser.parse(last)
 
-                return jsonify_with_status_code(400, **data)
-
-        except ValueError as e:
-            data = {
-                    'msg': 'invalid ISO 8601 time specification: %s' % e
-            }
+        if first_dt >= last_dt:
+            data = dict(msg='last time must be greater than first')
 
             return jsonify_with_status_code(400, **data)
 
-        generator = storage_backend.query_continuous(selectors, first, npoints)
+    except ValueError as e:
+        data = dict(msg='invalid ISO 8601 time specification: %s' % e)
 
-        response_generator = data_to_sse_stream(generator)
+        return make_response(json.dumps(data), 400)
 
-        return flask.Response(response_generator(),
-                              mimetype='text/event-stream')
+    if not continuous:
+        times, values = storage_backend.query(selectors, first_dt, last_dt, npoints)
+        data = dict(times=[t.isoformat() for t in times], values=values)
+        return jsonify(data)
+    else:
+        times, values, generator = \
+            storage_backend.query_continuous(selectors, first, npoints)
+        response_generator = data_to_sse_stream(times, values, generator)
+        return Response(response_generator(), mimetype='text/event-stream')
 
 
 def start(config):

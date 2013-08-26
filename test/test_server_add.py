@@ -121,6 +121,18 @@ def test_get_limit(app):
     assert [9] == response['values']
 
 
+def test_get_id_no_series(app):
+    # This config does not exist
+    res = app.get('/data/noexist/1')
+    assert res.status_code == 404
+
+
+def test_get_id_no_id(app):
+    # This config does not exist
+    res = app.get('/data/int/1')
+    assert res.status_code == 404
+
+
 def test_add_int(app):
     b = ln.server.storage_backend
     times = []
@@ -137,6 +149,9 @@ def test_add_int(app):
     assert times == db_times
     assert list(range(10)) == db_values
     assert next_seq is None
+
+    response = app.get('/data/int/9')
+    assert json.loads(response.get_data(as_text=True)) == 9
 
 
 def test_add_float(app):
@@ -175,6 +190,10 @@ def test_add_array(app):
     assert times == db_times
     assert np.array_equal(np.array(values), np.array(db_values))
     assert next_seq is None
+
+    response = app.get('/data/array/9')
+    assert np.array_equal(json.loads(response.get_data(as_text=True)),
+        values[9])
 
 
 def test_add_blob(app):
