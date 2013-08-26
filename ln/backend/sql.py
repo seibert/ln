@@ -5,8 +5,11 @@ from sqlalchemy.orm import sessionmaker
 
 from ln.backend.base import Backend, Blob
 from ln.backend.exception import SeriesCreationError, \
-    SeriesDoesNotExistError, SeriesTimeOrderError
+    SeriesDoesNotExistError, SeriesTimeOrderError, BadSelectorError
 from ln.backend.datatype import parse_datatype
+from ln.backend.selector import parse_selector, create_selector
+
+from datetime import datetime
 
 ##### SQLAlchemy tables
 
@@ -193,6 +196,7 @@ class SQLBackend(Backend):
         datatype = parse_datatype(config.type)
         table = self._pick_table(datatype)
 
+        # Select appropriate columns from table
         if datatype.is_blob():
             query = session.query(table.sequence, table.timestamp)\
                 .filter_by(name=name)
@@ -200,6 +204,7 @@ class SQLBackend(Backend):
             query = session.query(table.sequence, table.timestamp, table.value)\
                 .filter_by(name=name)
 
+        # Decide how many entries to fetch
         if offset == None:  # get last entry
             row = query.order_by(table.sequence.desc()).first()
             if datatype.is_blob():
@@ -210,6 +215,8 @@ class SQLBackend(Backend):
             return [row.timestamp], [value], None
         else:
             query = query.order_by(table.sequence)
+
+            # Apply limits and decide what the next sequence number is, if any
             if limit is None:
                 rows = query[offset:]
                 next_offset = None
@@ -235,3 +242,61 @@ class SQLBackend(Backend):
                 values.append(value)
 
             return times, values, next_offset
+
+    def _query(self, selectors, first, last, npoints):
+        '''Common core of query implementation shared between ``query``
+        and ``query_continuous``.
+
+        Returns: list of timestamps, list of resampled series (each a list of
+            resampled points), list of Selector objects,
+            timedelta between timestamps
+        '''
+
+        # Parse selectors
+        selector_objs = []
+        for selector in selectors:
+            name, reduce_strategy, interp_strategy = parse_selector(selector)
+            config = self.get_config(name)
+            if config is None:
+                raise BadSelectorError('Unknown series name "%s"' % name)
+
+            selector_obj = create_selector(series_config=config,
+                reduction=reduce_strategy, interpolation=interp_strategy)
+            selector_objs.append(selector_obj)
+
+        # Compute bin boundaries
+        bin_half_delta = (last - first) / ((npoints - 1) * 2)
+        bin_boundaries = [first + bin_half_delta * (2 * i - 1)
+            for i in range(npoints + 1)]
+        bin_centers = [first + bin_half_delta * (2 * i)
+            for i in range(npoints)]
+
+        # Collect and resample points for each series
+        resampled_series = []
+
+        session = self._sessionmaker()
+        for selector in selector_objs:
+            table = self._pick_table(selector.datatype)
+            groups = []
+            for lower, upper in zip(bin_boundaries[:-1], bin_boundaries[1:]):
+                rows = session.query(table.timestamp, table.value) \
+                    .order_by(table.sequence).filter(table.timestamp >= lower,
+                        table.timestamp < upper)
+                group = [(row.timestamp, row.value) for row in rows]
+                groups.append(group)
+
+            resampled_points = selector.apply_strategies(bin_centers, groups)
+            resampled_series.append(resampled_points)
+
+        return bin_centers, resampled_series, selector_objs, 2 * bin_half_delta
+
+    def query(self, selectors, first, last, npoints):
+        times, values, _, _ = self._query(selectors, first, last, npoints)
+        return times, values
+
+    def query_continuous(self, selectors, first, npoints):
+        last = datetime.now()
+        times, values, selectors, delta_t = self._query(selectors, first,
+            last, npoints)
+        # create generator that emits new values
+        # return
