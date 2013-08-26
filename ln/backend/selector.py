@@ -99,14 +99,21 @@ def create_selector(series_config, reduction=None, interpolation=None):
         ``None`` to select the default for this series.
     '''
     name = series_config['name']
-    datatype = parse_datatype(series_config['datatype'])
+    datatype = parse_datatype(series_config['type'])
     if reduction is None:
         reduction = series_config['reduction']
     if interpolation is None:
         interpolation = series_config['interpolation']
 
-    reduction_func = REDUCTIONS[reduction]
-    interpolation_func = INTERPOLATIONS[interpolation]
+    try:
+        reduction_func = REDUCTIONS[reduction]
+    except KeyError:
+        raise BadSelectorError('Unknown reduction "%s"' % reduction)
+
+    try:
+        interpolation_func = INTERPOLATIONS[interpolation]
+    except KeyError:
+        raise BadSelectorError('Unknown interpolation "%s"' % interpolation)
 
     return Selector(series_name=name, datatype=datatype, reduction=reduction,
         interpolation=interpolation, reduction_func=reduction_func,

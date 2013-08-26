@@ -34,7 +34,7 @@ def test_parse_selector_fail():
 
 
 def test_create_selector_defaults():
-    config = dict(name='foo', datatype='int32', reduction='sum',
+    config = dict(name='foo', type='int32', reduction='sum',
         interpolation='none')
     s = create_selector(config)
     assert s.series_name == 'foo'
@@ -47,7 +47,7 @@ def test_create_selector_defaults():
 
 
 def test_create_selector_override_reduction():
-    config = dict(name='foo', datatype='int32', reduction='sum',
+    config = dict(name='foo', type='int32', reduction='sum',
         interpolation='none')
     s = create_selector(config, reduction='closest')
     assert s.series_name == 'foo'
@@ -60,7 +60,7 @@ def test_create_selector_override_reduction():
 
 
 def test_create_selector_override_interpolation():
-    config = dict(name='foo', datatype='int32', reduction='sum',
+    config = dict(name='foo', type='int32', reduction='sum',
         interpolation='none')
     s = create_selector(config, interpolation='previous')
     assert s.series_name == 'foo'
@@ -73,7 +73,7 @@ def test_create_selector_override_interpolation():
 
 
 def test_create_selector_override_both():
-    config = dict(name='foo', datatype='int32', reduction='sum',
+    config = dict(name='foo', type='int32', reduction='sum',
         interpolation='none')
     s = create_selector(config, reduction='closest', interpolation='previous')
     assert s.series_name == 'foo'
@@ -86,7 +86,7 @@ def test_create_selector_override_both():
 
 
 def test_apply_strategies():
-    config = dict(name='foo', datatype='int32', reduction='sum',
+    config = dict(name='foo', type='int32', reduction='sum',
         interpolation='zero')
     s = create_selector(config)
 
