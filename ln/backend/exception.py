@@ -10,6 +10,10 @@ class BadTypeError(BackendError):
     pass
 
 
+class BadSelectorError(BackendError):
+    pass
+
+
 class TimeOrderError(BackendError):
     pass
 
