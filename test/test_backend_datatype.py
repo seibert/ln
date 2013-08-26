@@ -145,3 +145,24 @@ def test_coerce_array():
 def test_coerce_blob():
     d = Datatype('blob', mimetype='text/plain')
     assert d.coerce(b'foo') == b'foo'
+
+
+def test_make_zero_scalar():
+    d = Datatype('int32')
+    assert d.make_zero() == 0
+
+    d = Datatype('float32')
+    assert d.make_zero() == 0.0
+
+
+def test_make_zero_array():
+    d = Datatype('int32', shape=(2,))
+    assert np.array_equal(d.make_zero(), [0, 0])
+
+    d = Datatype('float32', shape=(2, 3))
+    assert np.array_equal(d.make_zero(), [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+
+
+def test_make_zero_blob():
+    d = Datatype('blob', mimetype='text/plain')
+    assert d.make_zero() == b''

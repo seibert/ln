@@ -103,6 +103,22 @@ class Datatype(object):
         except (ValueError, TypeError) as e:
             raise BadTypeError(str(e))
 
+    def make_zero(self):
+        '''Return an "zero" instance of this data type.
+
+        Scalars return zero, array types return an array of the
+        desired shape with all elements equal to zero, and blob
+        types return the empty string.
+        '''
+        if self.is_int_scalar():
+            return 0
+        elif self.is_float_scalar():
+            return 0.0
+        elif self.is_array():
+            return np.zeros(shape=self.shape, dtype=NUMPY_TYPE_MAPPING[self.base])
+        elif self.is_blob():
+            return b''
+
 
 def parse_datatype(typestring):
     '''Parse a datatype string and return an instance of Datatype to
