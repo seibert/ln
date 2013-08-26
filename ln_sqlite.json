@@ -1,0 +1,12 @@
+{
+    "host" : "127.0.0.1",
+    "port" : 6283,
+    "url_base" : "http://localhost:6283/",
+
+    "resampling_intervals" : [1, 60, 3600, 86400],
+
+    "storage" : {
+                    "backend" : "sql",
+                    "url" : "sqlite:///ln.sqlite"
+                }
+}

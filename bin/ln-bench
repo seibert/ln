@@ -1,0 +1,64 @@
+#!/usr/bin/env python
+import requests
+from datetime import datetime
+import random
+from ln.backend.reduction import get_total_seconds  # Python 2.6
+
+url_base = 'http://localhost:6283/'
+
+
+def setup_server(num_points):
+    t = {
+        'name': 'test_float',
+        'type': 'float32',
+        'reduction': 'mean',
+        'interpolation': 'previous',
+        'description': 'Benchmark demo',
+        'unit': '',
+        'metadata': ''
+    }
+
+    r = requests.post(url_base + 'create', data=t)
+    assert r.status_code == 200
+
+    add_data_url = url_base + 'data/test_float'
+
+    start = datetime.now()
+    for i in range(num_points):
+        data = dict(time=datetime.now().isoformat(),
+            value=random.uniform(0, 1))
+        r = requests.post(add_data_url, data=data)
+    end = datetime.now()
+
+    return start, end
+
+
+def query_bench(start, end, num_points, reps):
+    query_url = url_base + 'query'
+
+    params = dict(selector='test_float', first=start.isoformat(),
+        last=end.isoformat(), npoints=num_points)
+
+    query_start = datetime.now()
+    for i in range(reps):
+        r = requests.get(query_url, params=params)
+        assert r.status_code == 200
+    query_end = datetime.now()
+
+    return get_total_seconds(query_end - query_start)
+
+
+def main():
+    num_to_add = 10000
+    start, end = setup_server(num_to_add)
+    print('Time to add %d points: %f sec' % (num_to_add,
+                                             get_total_seconds(end - start)))
+
+    num_queries = 1000
+    num_points_per_query = 200
+    run_time = query_bench(start, end, num_points_per_query, num_queries)
+    print('Time to make %d queries of %d points: %f sec' %
+        (num_queries, num_points_per_query, run_time))
+
+if __name__ == '__main__':
+    main()

@@ -262,7 +262,7 @@ def start(config):
     print('Opening "%s" storage backend...' % storage['backend'])
     storage_backend = backend.get_backend(storage)
 
-    app.config['url_base'] = ['url_base']
+    app.config['url_base'] = 'url_base'
     print('Base URL is', config['url_base'])
 
     app.run(host=config['host'], port=config['port'],

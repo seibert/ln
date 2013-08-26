@@ -2,12 +2,13 @@
 
 import argparse
 import json
-from ln import backend
 from ln import server
+
 
 commands = {
     'start': server.start
 }
+
 
 def main():
     parser = argparse.ArgumentParser(description='Natural Log server')
