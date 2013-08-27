@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, String, \
     DateTime, Float, PickleType, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import numpy as np
 
 from ln.backend.base import Backend, Blob
 from ln.backend.exception import SeriesCreationError, \
@@ -212,6 +213,10 @@ class SQLBackend(Backend):
                     series_name=name, backend=self)
             else:
                 value = row.value
+
+            if isinstance(value, np.ndarray):
+                value = value.tolist()
+
             return [row.timestamp], [value], None
         else:
             query = query.order_by(table.sequence)

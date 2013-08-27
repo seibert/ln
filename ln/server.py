@@ -78,7 +78,11 @@ def data(series_name):
     '''
     if request.method == 'POST':
         try:
-            time = dateutil.parser.parse(request.form['time'])
+            if 'time' in request.form:
+                time = dateutil.parser.parse(request.form['time'])
+            else:
+                time = datetime.datetime.now()
+
             if 'value' in request.files:
                 value = request.files['value'].read()
             else:
@@ -204,7 +208,7 @@ def query():
     '''
     if 'last' not in request.args:
         continuous = True
-        last = datetime.now().isoformat()
+        last = datetime.datetime.now().isoformat()
     else:
         continuous = False
 
