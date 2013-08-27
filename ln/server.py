@@ -156,7 +156,7 @@ def get(series_name, id):
         response.set_data(value.get_bytes())
         return response
     elif hasattr(value, '__len__'):  # list-like
-        return json.dumps(value.tolist())  # jsonify does not like non-dict
+        return json.dumps(value)
     else:
         return str(value)
 

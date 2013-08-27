@@ -119,6 +119,22 @@ class Datatype(object):
         elif self.is_blob():
             return b''
 
+    def convert_to_jsonable(self, value):
+        '''Converts value to a type that can be handled by the JSON parser,
+        i.e. no numpy types.
+
+        Assumes that input value has been returned by coerce, so is a scalar,
+        numpy array, or bytes object.
+        '''
+        if self.is_int_scalar():
+            return int(value)
+        elif self.is_float_scalar():
+            return float(value)
+        elif self.is_array():
+            return value.tolist()
+        elif self.is_blob():
+            return bytes(value)
+
 
 def parse_datatype(typestring):
     '''Parse a datatype string and return an instance of Datatype to

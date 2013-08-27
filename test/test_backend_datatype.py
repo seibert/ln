@@ -166,3 +166,28 @@ def test_make_zero_array():
 def test_make_zero_blob():
     d = Datatype('blob', mimetype='text/plain')
     assert d.make_zero() == b''
+
+
+def test_convert_to_jsonable_scalar():
+    d = Datatype('int32')
+    assert type(d.convert_to_jsonable(1)) == type(1)
+    assert type(d.convert_to_jsonable(np.int8(1))) == type(1)
+
+    d = Datatype('float64')
+    assert type(d.convert_to_jsonable(1.5)) == type(1.0)
+    assert type(d.convert_to_jsonable(1)) == type(1.0)
+    assert type(d.convert_to_jsonable(np.float32(1.5))) == type(1.0)
+    assert d.convert_to_jsonable(np.float32(1.5)) == 1.5
+
+
+def test_convert_to_jsonable_array():
+    d = Datatype('int32', shape=(2,))
+    v = np.array([1, 2], dtype=np.int32)
+    assert type(d.convert_to_jsonable(v)) == type([])
+    assert d.convert_to_jsonable(v) == [1, 2]
+
+
+def test_convert_to_jsonable_blob():
+    d = Datatype('blob', mimetype='text/plain')
+    assert type(d.convert_to_jsonable(b'foo')) == type(b'foo')
+    assert d.convert_to_jsonable(b'foo') == b'foo'

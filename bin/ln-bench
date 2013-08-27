@@ -2,7 +2,8 @@
 import requests
 from datetime import datetime
 import random
-from ln.backend.reduction import get_total_seconds  # Python 2.6
+from ln.backend.compat import get_total_seconds  # Python 2.6
+from progressbar import ProgressBar
 
 url_base = 'http://localhost:6283/'
 
@@ -23,8 +24,9 @@ def setup_server(num_points):
 
     add_data_url = url_base + 'data/test_float'
 
+    progress = ProgressBar()
     start = datetime.now()
-    for i in range(num_points):
+    for i in progress(range(num_points)):
         data = dict(time=datetime.now().isoformat(),
             value=random.uniform(0, 1))
         r = requests.post(add_data_url, data=data)
@@ -39,8 +41,9 @@ def query_bench(start, end, num_points, reps):
     params = dict(selector='test_float', first=start.isoformat(),
         last=end.isoformat(), npoints=num_points)
 
+    progress = ProgressBar()
     query_start = datetime.now()
-    for i in range(reps):
+    for i in progress(range(reps)):
         r = requests.get(query_url, params=params)
         assert r.status_code == 200
     query_end = datetime.now()

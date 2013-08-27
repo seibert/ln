@@ -9,6 +9,7 @@ from ln.backend.exception import SeriesCreationError, \
     SeriesDoesNotExistError, SeriesTimeOrderError, BadSelectorError
 from ln.backend.datatype import parse_datatype
 from ln.backend.selector import parse_selector, create_selector
+from ln.backend.compat import get_total_seconds
 
 from datetime import datetime
 import time
@@ -213,10 +214,7 @@ class SQLBackend(Backend):
                 value = SQLBlob(index=row.sequence, mimetype=datatype.mimetype,
                     series_name=name, backend=self)
             else:
-                value = row.value
-
-            if isinstance(value, np.ndarray):
-                value = value.tolist()
+                value = datatype.convert_to_jsonable(row.value)
 
             return [row.timestamp], [value], None
         else:
@@ -244,7 +242,7 @@ class SQLBackend(Backend):
                         mimetype=datatype.mimetype,
                         series_name=name, backend=self)
                 else:
-                    value = row.value
+                    value = datatype.convert_to_jsonable(row.value)
                 values.append(value)
 
             return times, values, next_offset
@@ -274,7 +272,8 @@ class SQLBackend(Backend):
                 group = [(row.timestamp, row.value) for row in rows]
                 groups.append(group)
 
-            resampled_points = selector.apply_strategies(bin_center, groups)
+            resampled_points = [selector.datatype.convert_to_jsonable(value)
+                for value in selector.apply_strategies(bin_center, groups)]
             resampled_series.append(resampled_points)
         return resampled_series
 
@@ -321,7 +320,7 @@ class SQLBackend(Backend):
 
         while True:
             next_query_time = next_t + delta_t / 2
-            sleep_time = (next_query_time - datetime.now()).total_seconds()
+            sleep_time = get_total_seconds(next_query_time - datetime.now())
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
