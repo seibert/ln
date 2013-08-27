@@ -77,3 +77,31 @@ def test_query_fail_bad_time_order(app):
     result = app.get('/query?selector=int&first=%s&last=%s&npoints=4'
         % (last.isoformat(), first.isoformat()))  # intentionally backwards!
     assert result.status_code == 400
+
+
+def test_query_continuous(app):
+    backend = ln.server.storage_backend
+    ln.server.app.config['LIMIT_CONTINUOUS'] = 5
+
+    delta_t = timedelta(milliseconds=100)
+    first = datetime.now() - delta_t
+
+    times, values, gen = backend.query_continuous(['int'], first, 2)
+    response = app.get('/query?selector=int&first=%s&npoints=2'
+        % (first.isoformat(),))
+    assert response.status_code == 200
+
+    # Quick! Populate backend directly with some data
+    for i in range(2, 6):
+        backend.add_data('int', first + i * delta_t, i)
+
+    messages = response.get_data(as_text=True).split('data: ')[1:]
+    initial = json.loads(messages[0])
+    assert len(initial['times']) == 2
+    assert initial['values'] == [[0, 0]]
+
+    for i in range(2, 6):
+        message = json.loads(messages[i - 1])
+        assert len(message['times']) == 1
+        assert len(message['values']) == 1
+        assert message['values'][0][0] == i

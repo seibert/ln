@@ -1,5 +1,6 @@
 import ln.server
 from ln.backend import get_backend
+from ln.backend.compat import get_total_seconds
 from datetime import datetime, timedelta
 import pytest
 import numpy as np
@@ -245,3 +246,16 @@ def test_add_bad_type(app):
     response, code = get_json_and_status(app.post('/data/int', data=data))
     assert code == 400
     assert response['type'] == 'bad_type'
+
+
+def test_add_now(app):
+    b = ln.server.storage_backend
+    now = datetime.now()
+    data = dict(value=1)
+    response, code = get_json_and_status(app.post('/data/int', data=data))
+    assert code == 200
+    assert response['index'] == 0
+
+    db_times, db_values, next_seq = b.get_data('int', 0)
+    assert get_total_seconds(db_times[0] - now) < 0.01
+    assert db_values[0] == 1

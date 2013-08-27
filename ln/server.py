@@ -23,17 +23,22 @@ def jsonify_with_status_code(status_code, *args, **kwargs):
     return response
 
 
-def data_to_sse_stream(intial_times, initial_values, gen):
+def data_to_sse_stream(initial_times, initial_values, gen, limit=None):
     '''Convert a generator of data into a generator of server-sent event
     messages.
 
     :param intial_times: Initial array of times for query
     :param intial_values: Initial array of series values
     :param gen: A generator of new (times, values) tuples
+    :param limit: Maximum number of updates to return.  Only used for testing.
     '''
-    for times, values in chain([(times, values)], gen):
+    i = 0
+    for times, values in chain([(initial_times, initial_values)], gen):
+        if limit is not None and i >= limit:
+            break
         data = dict(times=[t.isoformat() for t in times], values=values)
         yield 'data: %s\n\n' % json.dumps(data)
+        i += 1
 
 
 @app.route('/')
@@ -210,15 +215,14 @@ def query():
         continuous = True
         last = datetime.datetime.now().isoformat()
     else:
+        last = request.args['last']
         continuous = False
 
     try:
         selectors = request.args.getlist('selector')
         first = request.args['first']
-        last = request.args['last']
         npoints = int(request.args['npoints'])
-
-    except Exception as e:
+    except (KeyError, ValueError) as e:
         data = dict(msg='invalid query: %s' % e)
 
         return jsonify_with_status_code(400, **data)
@@ -248,9 +252,11 @@ def query():
         return jsonify(data)
     else:
         times, values, generator = \
-            storage_backend.query_continuous(selectors, first, npoints)
-        response_generator = data_to_sse_stream(times, values, generator)
-        return Response(response_generator(), mimetype='text/event-stream')
+            storage_backend.query_continuous(selectors, first_dt, npoints)
+        limit = app.config.get('LIMIT_CONTINUOUS', None)
+        response_generator = data_to_sse_stream(times, values, generator,
+            limit=limit)
+        return Response(response_generator, mimetype='text/event-stream')
 
 
 def start(config):
