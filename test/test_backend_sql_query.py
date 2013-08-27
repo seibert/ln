@@ -3,6 +3,7 @@ from ln.backend.exception import BadSelectorError
 from datetime import datetime, timedelta
 import pytest
 import numpy as np
+from itertools import islice
 
 
 @pytest.fixture
@@ -55,3 +56,18 @@ def test_bad_query(backend):
 
     with pytest.raises(BadSelectorError):
         backend.query(['int:sum:blah'], first, last, 12)
+
+
+def test_query_continuous(backend):
+    delta_t = timedelta(milliseconds=10)
+    first = datetime.now() - delta_t
+
+    times, values, gen = backend.query_continuous(['int'], first, 2)
+
+    for i in range(2, 6):
+        backend.add_data('int', first + i * delta_t, i)
+
+    for i, (times, values) in enumerate(islice(gen, 4)):
+        assert len(times) == 1
+        assert len(values[0]) == 1
+        assert values[0][0] == i + 2

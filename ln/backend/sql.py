@@ -11,6 +11,7 @@ from ln.backend.datatype import parse_datatype
 from ln.backend.selector import parse_selector, create_selector
 
 from datetime import datetime
+import time
 
 ##### SQLAlchemy tables
 
@@ -248,6 +249,35 @@ class SQLBackend(Backend):
 
             return times, values, next_offset
 
+    def _get_resampled_series(self, selectors, bin_lower, bin_upper, bin_center):
+        '''Return the resampled points for the given selectors using the list
+        of datetimes provided in bin_lower and bin_upper.
+
+        :param selectors: list of Selector objects
+        :param bin_lower: list of datetimes representing lower bin boundaries
+        :param bin_upper: list of datetimes representing upper bin boundaries
+        :param bin_center: list of datetimes representing the center of each bin
+
+        Returns: List of lists of resampled points.  Top level list is indexed
+        by selector, and each sublist is the list of points in the order
+        of the bin boundaries.
+        '''
+        resampled_series = []
+        session = self._sessionmaker()
+        for selector in selectors:
+            table = self._pick_table(selector.datatype)
+            groups = []
+            for lower, upper in zip(bin_lower, bin_upper):
+                rows = session.query(table.timestamp, table.value) \
+                    .order_by(table.sequence).filter(table.timestamp >= lower,
+                        table.timestamp < upper)
+                group = [(row.timestamp, row.value) for row in rows]
+                groups.append(group)
+
+            resampled_points = selector.apply_strategies(bin_center, groups)
+            resampled_series.append(resampled_points)
+        return resampled_series
+
     def _query(self, selectors, first, last, npoints):
         '''Common core of query implementation shared between ``query``
         and ``query_continuous``.
@@ -277,21 +307,8 @@ class SQLBackend(Backend):
             for i in range(npoints)]
 
         # Collect and resample points for each series
-        resampled_series = []
-
-        session = self._sessionmaker()
-        for selector in selector_objs:
-            table = self._pick_table(selector.datatype)
-            groups = []
-            for lower, upper in zip(bin_boundaries[:-1], bin_boundaries[1:]):
-                rows = session.query(table.timestamp, table.value) \
-                    .order_by(table.sequence).filter(table.timestamp >= lower,
-                        table.timestamp < upper)
-                group = [(row.timestamp, row.value) for row in rows]
-                groups.append(group)
-
-            resampled_points = selector.apply_strategies(bin_centers, groups)
-            resampled_series.append(resampled_points)
+        resampled_series = self._get_resampled_series(selector_objs,
+            bin_boundaries[:-1], bin_boundaries[1:], bin_centers)
 
         return bin_centers, resampled_series, selector_objs, 2 * bin_half_delta
 
@@ -299,9 +316,29 @@ class SQLBackend(Backend):
         times, values, _, _ = self._query(selectors, first, last, npoints)
         return times, values
 
+    def _generate_values(self, selectors, next_t, delta_t):
+        '''Generate new query results every delta_t interval.'''
+
+        while True:
+            next_query_time = next_t + delta_t / 2
+            sleep_time = (next_query_time - datetime.now()).total_seconds()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
+            bin_lower = [next_t - delta_t / 2]
+            bin_upper = [next_t + delta_t / 2]
+            bin_center = [next_t]
+
+            resampled_series = self._get_resampled_series(selectors,
+                bin_lower, bin_upper, bin_center)
+            yield bin_center, resampled_series
+
+            next_t = next_t + delta_t
+
     def query_continuous(self, selectors, first, npoints):
         last = datetime.now()
-        times, values, selectors, delta_t = self._query(selectors, first,
+        times, values, selector_objs, delta_t = self._query(selectors, first,
             last, npoints)
-        # create generator that emits new values
-        # return
+        gen = self._generate_values(selector_objs, last + delta_t, delta_t)
+
+        return times, values, gen
