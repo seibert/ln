@@ -59,7 +59,7 @@ def test_bad_query(backend):
 
 
 def test_query_continuous(backend):
-    delta_t = timedelta(milliseconds=10)
+    delta_t = timedelta(milliseconds=100)
     first = datetime.now() - delta_t
 
     times, values, gen = backend.query_continuous(['int'], first, 2)

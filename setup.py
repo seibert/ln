@@ -1,6 +1,7 @@
 from setuptools import setup, find_packages
 import sys
 import os
+import platform
 
 sys.path.insert(0, '.')
 from ln import __version__
@@ -8,11 +9,13 @@ from ln import __version__
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-install_requires = ['flask', 'requests', 'sqlalchemy', 'numpy', 'python-dateutil']
+install_requires = ['flask', 'requests', 'sqlalchemy', 'python-dateutil']
 # Trick lifted from tox setup.py
 version = sys.version_info[:2]
 if version < (2,7) or (3,0) <= version <= (3,1):
     install_requires.append('argparse')
+if platform.python_implementation() != 'PyPy':
+    install_requires.append('numpy')
 
 setup(
     name = "ln",
@@ -24,4 +27,3 @@ setup(
     scripts = ['bin/ln-server'],
     install_requires = install_requires
 )
-

@@ -2,6 +2,7 @@ from ln.backend.sql import SQLBackend
 from ln.backend.exception import SeriesCreationError, SeriesDoesNotExistError
 import pytest
 
+
 def test_create():
     b = SQLBackend('sqlite://')
     assert len(b.get_series_list()) == 0

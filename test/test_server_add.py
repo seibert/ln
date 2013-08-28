@@ -257,5 +257,5 @@ def test_add_now(app):
     assert response['index'] == 0
 
     db_times, db_values, next_seq = b.get_data('int', 0)
-    assert get_total_seconds(db_times[0] - now) < 0.01
+    assert get_total_seconds(db_times[0] - now) < 0.1
     assert db_values[0] == 1

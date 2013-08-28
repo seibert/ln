@@ -2,6 +2,7 @@ import pytest
 import json
 from datetime import datetime, timedelta
 import numpy as np
+import platform
 
 from ln.backend import get_backend
 import ln.server
@@ -83,7 +84,12 @@ def test_query_continuous(app):
     backend = ln.server.storage_backend
     ln.server.app.config['LIMIT_CONTINUOUS'] = 5
 
-    delta_t = timedelta(milliseconds=100)
+    # PyPy runs unit tests very slow (all warmup, basically)
+    if platform.python_implementation() == 'PyPy':
+        delta_t = timedelta(milliseconds=1000)
+    else:
+        delta_t = timedelta(milliseconds=100)
+
     first = datetime.now() - delta_t
 
     times, values, gen = backend.query_continuous(['int'], first, 2)

@@ -6,7 +6,7 @@ import pytest
 
 def test_none():
     a = [1, 3, None, 4, None]
-    assert np.array_equal(interpolation.none(a, None, None), a)
+    assert interpolation.none(a, None, None) == a
 
 
 def test_zero():

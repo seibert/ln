@@ -11,6 +11,18 @@ like syslog.
 Development," so none of the code exists to do any of this yet.
 
 
+Requirements
+------------
+
+Natural Log requires:
+  * Python 2.6, 2.7, 3.3 or PyPy 2.1
+  * flask
+  * requests
+  * dateutil
+  * argparse (only on Python 2.6)
+  * numpy (or numpypy in the case of PyPy 2.1)
+
+
 Documentation
 -------------
 
