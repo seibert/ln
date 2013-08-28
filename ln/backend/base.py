@@ -1,6 +1,7 @@
 '''Interface for storage backends.'''
 from ln.backend.exception import BackendError
 
+# pylint: disable=unused-argument,no-self-use
 class Blob(object):
     '''Base class that represents a blob object in the database.'''
 

@@ -18,6 +18,7 @@ storage_backend = None
 
 
 def jsonify_with_status_code(status_code, *args, **kwargs):
+    '''Just like Flask jsonify function, but with an HTTP status code.'''
     response = jsonify(*args, **kwargs)
     response.status_code = status_code
     return response
@@ -36,8 +37,8 @@ def data_to_sse_stream(initial_times, initial_values, gen, limit=None):
     for times, values in chain([(initial_times, initial_values)], gen):
         if limit is not None and i >= limit:
             break
-        data = dict(times=[t.isoformat() for t in times], values=values)
-        yield 'data: %s\n\n' % json.dumps(data)
+        message = dict(times=[t.isoformat() for t in times], values=values)
+        yield 'data: %s\n\n' % json.dumps(message)
         i += 1
 
 
@@ -247,7 +248,8 @@ def query():
         return make_response(json.dumps(data), 400)
 
     if not continuous:
-        times, values = storage_backend.query(selectors, first_dt, last_dt, npoints)
+        times, values = storage_backend.query(selectors, first_dt, last_dt,
+            npoints)
         data = dict(times=[t.isoformat() for t in times], values=values)
         return jsonify(data)
     else:
@@ -261,7 +263,7 @@ def query():
 
 def start(config):
     '''Start the web server.
-    
+
     :param config: Configuration definition
     '''
     global storage_backend

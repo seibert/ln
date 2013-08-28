@@ -2,7 +2,6 @@ from sqlalchemy import create_engine, Column, Integer, String, \
     DateTime, Float, PickleType, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import numpy as np
 
 from ln.backend.base import Backend, Blob
 from ln.backend.exception import SeriesCreationError, \
@@ -93,6 +92,7 @@ class SQLBackend(Backend):
 
         :param url: SQLAlchemy-format url
         '''
+        super(Backend, self).__init__()
         self._engine = create_engine(url)
         Base.metadata.create_all(self._engine)
         self._sessionmaker = sessionmaker(bind=self._engine)
