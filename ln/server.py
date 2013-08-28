@@ -261,10 +261,12 @@ def query():
         return Response(response_generator, mimetype='text/event-stream')
 
 
-def start(config):
+def start(config, options):
     '''Start the web server.
 
     :param config: Configuration definition
+    :param options: argparse.Namespace with command line options:
+        profile - run application in profiler mode
     '''
     global storage_backend
 
@@ -276,6 +278,11 @@ def start(config):
 
     app.config['url_base'] = 'url_base'
     print('Base URL is', config['url_base'])
+
+    if options.profile:
+        from werkzeug.contrib.profiler import ProfilerMiddleware
+        app.config['PROFILE'] = True
+        app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[50])
 
     app.run(host=config['host'], port=config['port'],
             threaded=True, debug=True)

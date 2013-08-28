@@ -14,6 +14,8 @@ def main():
     parser = argparse.ArgumentParser(description='Natural Log server')
     parser.add_argument('--config', '-c', required=True,
                         help='Path to JSON configuration file')
+    parser.add_argument('--profile', default=False, action='store_true',
+                        help='Turn on request profiling')
     subparsers = parser.add_subparsers(title='Commands', dest='command')
 
     for command, fcn in commands.items():
@@ -25,10 +27,8 @@ def main():
     with open(args.config, 'r') as f:
         configuration = json.load(f)
 
-    commands[args.command](configuration)
+    commands[args.command](configuration, args)
 
 
 if __name__ == '__main__':
     main()
-
-

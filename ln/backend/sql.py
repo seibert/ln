@@ -12,6 +12,7 @@ from ln.backend.compat import get_total_seconds
 
 from datetime import datetime
 import time
+from contextlib import contextmanager
 
 ##### SQLAlchemy tables
 
@@ -84,6 +85,8 @@ class SQLBlob(Blob):
             sequence=self.index).first().value
 
 
+
+
 class SQLBackend(Backend):
     '''Backend based on SQLAlchemy'''
 
@@ -97,9 +100,22 @@ class SQLBackend(Backend):
         Base.metadata.create_all(self._engine)
         self._sessionmaker = sessionmaker(bind=self._engine)
 
-    def get_series_list(self):
+    @contextmanager
+    def session_scope(self):
+        '''Provide a transactional scope around a series of operations.'''
         session = self._sessionmaker()
-        return [row.name for row in session.query(Series.name)]
+        try:
+            yield session
+            session.commit()
+        except:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def get_series_list(self):
+        with self.session_scope() as session:
+            return [row.name for row in session.query(Series.name)]
 
     def create_series(self, name, type, reduction, interpolation, unit,
             description, metadata):
@@ -107,46 +123,42 @@ class SQLBackend(Backend):
         # Raises exception if datatype is invalid
         parse_datatype(type)
 
-        session = self._sessionmaker()
+        with self.session_scope() as session:
+            if session.query(Series).filter_by(name=name).count() != 0:
+                raise SeriesCreationError('Series %s already exists.'
+                    % name)
 
-        if session.query(Series).filter_by(name=name).count() != 0:
-            raise SeriesCreationError('Series %s already exists.'
-                % name)
-
-        series = Series(name=name, type=type, reduction=reduction,
-            interpolation=interpolation, unit=unit, description=description,
-            meta=metadata)
-        session.add(series)
-        session.commit()
+            series = Series(name=name, type=type, reduction=reduction,
+                interpolation=interpolation, unit=unit, description=description,
+                meta=metadata)
+            session.add(series)
 
     def get_config(self, name):
-        session = self._sessionmaker()
-        series = session.query(Series).filter_by(name=name).first()
-        if series is None:
-            return None
-        else:
-            config = dict([(k, getattr(series, k)) for k in
-                ('name', 'type', 'reduction',
-                'interpolation', 'unit', 'description')])
-            # "metadata" is used by SQLAlchemy, so the field is named "meta"
-            config['metadata'] = series.meta
-            return config
+        with self.session_scope() as session:
+            series = session.query(Series).filter_by(name=name).first()
+            if series is None:
+                return None
+            else:
+                config = dict([(k, getattr(series, k)) for k in
+                    ('name', 'type', 'reduction',
+                    'interpolation', 'unit', 'description')])
+                # "metadata" is used by SQLAlchemy, so the field is named "meta"
+                config['metadata'] = series.meta
+                return config
 
     def update_config(self, name, unit=None, description=None, metadata=None):
-        session = self._sessionmaker()
-        series = session.query(Series).filter_by(name=name).first()
+        with self.session_scope() as session:
+            series = session.query(Series).filter_by(name=name).first()
 
-        if series is None:
-            raise SeriesDoesNotExistError('Series %s does not exist.' % name)
+            if series is None:
+                raise SeriesDoesNotExistError('Series %s does not exist.' % name)
 
-        if unit is not None:
-            series.unit = unit
-        if description is not None:
-            series.description = description
-        if metadata is not None:
-            series.meta = metadata
-
-        session.commit()
+            if unit is not None:
+                series.unit = unit
+            if description is not None:
+                series.description = description
+            if metadata is not None:
+                series.meta = metadata
 
     def _pick_table(self, datatype):
         # select table based on type
@@ -160,92 +172,91 @@ class SQLBackend(Backend):
             return BlobValues
 
     def add_data(self, name, time, value):
-        session = self._sessionmaker()
-        config = session.query(Series.name, Series.type).filter_by(name=name).first()
+        with self.session_scope() as session:
+            config = session.query(Series.name, Series.type).filter_by(name=name).first()
 
-        if config is None:
-            raise SeriesDoesNotExistError('Series %s does not exist.' % name)
+            if config is None:
+                raise SeriesDoesNotExistError('Series %s does not exist.' % name)
 
-        datatype = parse_datatype(config.type)
-        value = datatype.coerce(value)
-        table = self._pick_table(datatype)
+            datatype = parse_datatype(config.type)
+            value = datatype.coerce(value)
+            table = self._pick_table(datatype)
 
-        # get last entry for this series (if exists)
-        last_entry = session.query(table.timestamp, table.sequence) \
-            .filter_by(name=name).order_by(table.timestamp.desc()).first()
+            # get last entry for this series (if exists)
+            last_entry = session.query(table.timestamp, table.sequence) \
+                .filter_by(name=name).order_by(table.timestamp.desc()).first()
 
-        # compute new sequence number
-        if last_entry is None:
-            sequence = 0
-        else:
-            if last_entry.timestamp > time:
-                raise SeriesTimeOrderError('New data point is chronologically before last point in series')
-            sequence = last_entry.sequence + 1
+            # compute new sequence number
+            if last_entry is None:
+                sequence = 0
+            else:
+                if last_entry.timestamp > time:
+                    raise SeriesTimeOrderError('New data point is chronologically before last point in series')
+                sequence = last_entry.sequence + 1
 
-        # create new entry
-        entry = table(name=name, sequence=sequence, timestamp=time,
-            value=value)
-        session.add(entry)
-        session.commit()
-        return sequence
+            # create new entry
+            entry = table(name=name, sequence=sequence, timestamp=time,
+                value=value)
+            session.add(entry)
+            return sequence
 
     def get_data(self, name, offset=None, limit=None):
-        session = self._sessionmaker()
-        config = session.query(Series.name, Series.type).filter_by(name=name).first()
+        with self.session_scope() as session:
+            config = session.query(Series.name, Series.type).filter_by(name=name).first()
 
-        if config is None:
-            raise SeriesDoesNotExistError('Series %s does not exist.' % name)
+            if config is None:
+                raise SeriesDoesNotExistError('Series %s does not exist.' % name)
 
-        datatype = parse_datatype(config.type)
-        table = self._pick_table(datatype)
+            datatype = parse_datatype(config.type)
+            table = self._pick_table(datatype)
 
-        # Select appropriate columns from table
-        if datatype.is_blob():
-            query = session.query(table.sequence, table.timestamp)\
-                .filter_by(name=name)
-        else:
-            query = session.query(table.sequence, table.timestamp, table.value)\
-                .filter_by(name=name)
-
-        # Decide how many entries to fetch
-        if offset == None:  # get last entry
-            row = query.order_by(table.sequence.desc()).first()
+            # Select appropriate columns from table
             if datatype.is_blob():
-                value = SQLBlob(index=row.sequence, mimetype=datatype.mimetype,
-                    series_name=name, backend=self)
+                query = session.query(table.sequence, table.timestamp)\
+                    .filter_by(name=name)
             else:
-                value = datatype.convert_to_jsonable(row.value)
+                query = session.query(table.sequence, table.timestamp, table.value)\
+                    .filter_by(name=name)
 
-            return [row.timestamp], [value], None
-        else:
-            query = query.order_by(table.sequence)
-
-            # Apply limits and decide what the next sequence number is, if any
-            if limit is None:
-                rows = query[offset:]
-                next_offset = None
-            else:
-                rows = query[offset:offset + limit + 1]
-                if len(rows) > limit:
-                    next_offset = rows[-1].sequence
-                else:
-                    next_offset = None
-                rows = rows[:limit]
-
-            times = []
-            values = []
-
-            for row in rows:
-                times.append(row.timestamp)
+            # Decide how many entries to fetch
+            if offset == None:  # get last entry
+                row = query.order_by(table.sequence.desc()).first()
                 if datatype.is_blob():
-                    value = SQLBlob(index=row.sequence,
-                        mimetype=datatype.mimetype,
+                    value = SQLBlob(index=row.sequence, mimetype=datatype.mimetype,
                         series_name=name, backend=self)
                 else:
                     value = datatype.convert_to_jsonable(row.value)
-                values.append(value)
 
-            return times, values, next_offset
+                return [row.timestamp], [value], None
+            else:
+                query = query.order_by(table.sequence)
+
+                # Apply limits and decide what the next sequence number is, if any
+                if limit is None:
+                    rows = query[offset:]
+                    next_offset = None
+                else:
+                    rows = query[offset:offset + limit + 1]
+                    if len(rows) > limit:
+                        next_offset = rows[-1].sequence
+                    else:
+                        next_offset = None
+                    rows = rows[:limit]
+
+                times = []
+                values = []
+
+                for row in rows:
+                    times.append(row.timestamp)
+                    if datatype.is_blob():
+                        value = SQLBlob(index=row.sequence,
+                            mimetype=datatype.mimetype,
+                            series_name=name, backend=self)
+                    else:
+                        value = datatype.convert_to_jsonable(row.value)
+                    values.append(value)
+
+                return times, values, next_offset
 
     def _get_resampled_series(self, selectors, bin_lower, bin_upper, bin_center):
         '''Return the resampled points for the given selectors using the list
@@ -260,27 +271,27 @@ class SQLBackend(Backend):
         by selector, and each sublist is the list of points in the order
         of the bin boundaries.
         '''
-        resampled_series = []
-        session = self._sessionmaker()
-        for selector in selectors:
-            table = self._pick_table(selector.datatype)
-            raw_values = session.query(table.timestamp, table.value) \
-                .order_by(table.sequence).filter(
-                    table.timestamp >= bin_lower[0],
-                    table.timestamp < bin_upper[-1]
-                ).all()
+        with self.session_scope() as session:
+            resampled_series = []
+            for selector in selectors:
+                table = self._pick_table(selector.datatype)
+                raw_values = session.query(table.timestamp, table.value) \
+                    .order_by(table.sequence).filter(
+                        table.timestamp >= bin_lower[0],
+                        table.timestamp < bin_upper[-1]
+                    ).all()
 
-            groups = [[] for i in range(len(bin_lower))]
-            current_group = 0
-            for row in raw_values:
-                while row.timestamp >= bin_upper[current_group]:
-                    current_group += 1
-                groups[current_group].append((row.timestamp, row.value))
+                groups = [[] for i in range(len(bin_lower))]
+                current_group = 0
+                for row in raw_values:
+                    while row.timestamp >= bin_upper[current_group]:
+                        current_group += 1
+                    groups[current_group].append((row.timestamp, row.value))
 
-            resampled_points = [selector.datatype.convert_to_jsonable(value)
-                for value in selector.apply_strategies(bin_center, groups)]
-            resampled_series.append(resampled_points)
-        return resampled_series
+                resampled_points = [selector.datatype.convert_to_jsonable(value)
+                    for value in selector.apply_strategies(bin_center, groups)]
+                resampled_series.append(resampled_points)
+            return resampled_series
 
     def _query(self, selectors, first, last, npoints):
         '''Common core of query implementation shared between ``query``
