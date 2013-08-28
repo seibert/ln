@@ -264,13 +264,18 @@ class SQLBackend(Backend):
         session = self._sessionmaker()
         for selector in selectors:
             table = self._pick_table(selector.datatype)
-            groups = []
-            for lower, upper in zip(bin_lower, bin_upper):
-                rows = session.query(table.timestamp, table.value) \
-                    .order_by(table.sequence).filter(table.timestamp >= lower,
-                        table.timestamp < upper)
-                group = [(row.timestamp, row.value) for row in rows]
-                groups.append(group)
+            raw_values = session.query(table.timestamp, table.value) \
+                .order_by(table.sequence).filter(
+                    table.timestamp >= bin_lower[0],
+                    table.timestamp < bin_upper[-1]
+                ).all()
+
+            groups = [[] for i in range(len(bin_lower))]
+            current_group = 0
+            for row in raw_values:
+                while row.timestamp >= bin_upper[current_group]:
+                    current_group += 1
+                groups[current_group].append((row.timestamp, row.value))
 
             resampled_points = [selector.datatype.convert_to_jsonable(value)
                 for value in selector.apply_strategies(bin_center, groups)]
