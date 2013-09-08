@@ -4,7 +4,7 @@ python:
   - 2.7
   - 3.3
 before_install:
-  - apt-get install python-dev
+  - sudo apt-get install python-dev
 install:
   - pip install --use-mirrors pytest-cov numpy
   - python setup.py install
