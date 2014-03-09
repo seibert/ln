@@ -242,7 +242,7 @@ def query():
 
             return jsonify_with_status_code(400, **data)
 
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         data = dict(msg='invalid ISO 8601 time specification: %s' % e)
 
         return make_response(json.dumps(data), 400)
