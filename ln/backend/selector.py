@@ -4,6 +4,7 @@ from ln.backend.exception import BadSelectorError
 from ln.backend.datatype import parse_datatype
 from ln.backend.reduction import REDUCTIONS
 from ln.backend.interpolation import INTERPOLATIONS
+from ln.backend.compat import zip
 
 
 class Selector(object):
