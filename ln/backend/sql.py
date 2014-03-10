@@ -221,7 +221,10 @@ class SQLBackend(Backend):
             # Decide how many entries to fetch
             if offset == None:  # get last entry
                 row = query.order_by(table.sequence.desc()).first()
-                if datatype.is_blob():
+
+                if row is None:
+                    return [], [], None  # No entry to return
+                elif datatype.is_blob():
                     value = SQLBlob(index=row.sequence, mimetype=datatype.mimetype,
                         series_name=name, backend=self)
                 else:

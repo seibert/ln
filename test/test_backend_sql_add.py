@@ -64,6 +64,14 @@ def test_get_doesnotexist(backend):
         b.get_data('doesnotexist')
 
 
+def test_get_empty_series(backend):
+    b = backend
+    db_times, db_values, next_seq = b.get_data('int')
+    assert len(db_times) == 0
+    assert len(db_values) == 0
+    assert next_seq is None
+
+
 def test_get_last(backend):
     b = backend
     times = []
