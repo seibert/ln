@@ -15,7 +15,7 @@ def export_json(backend, output_file):
     for series_name in backend.get_series_list():
         config = backend.get_config(series_name)
         if config['type'].startswith('blob'):
-            transform = lambda v: b64encode(v.get_bytes())
+            transform = lambda v: b64encode(v.get_bytes()).decode('utf-8')
         else:
             transform = lambda v: v
 

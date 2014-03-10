@@ -163,8 +163,8 @@ def test_export_blob(backend):
     contents = json.loads(out_file.getvalue())
     expected = basic_contents()
     expected['series'][2]['points'] = [
-        ['2012-01-15 01:00:00', base64.b64encode(blob1)],
-        ['2012-01-30 01:00:00', base64.b64encode(blob2)]
+        ['2012-01-15 01:00:00', base64.b64encode(blob1).decode('utf-8')],
+        ['2012-01-30 01:00:00', base64.b64encode(blob2).decode('utf-8')]
     ]
     assert contents == expected
 
