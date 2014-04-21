@@ -1,7 +1,8 @@
 from sqlalchemy import create_engine, Column, Integer, String, \
-    DateTime, Float, PickleType, LargeBinary
+    DateTime, Float, LargeBinary, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.types import TypeDecorator
 
 from ln.backend.base import Backend, Blob
 from ln.backend.exception import SeriesCreationError, \
@@ -13,6 +14,8 @@ from ln.backend.compat import get_total_seconds
 from datetime import datetime
 import time
 from contextlib import contextmanager
+import json
+import numpy as np
 
 ##### SQLAlchemy tables
 
@@ -59,9 +62,25 @@ class FloatValues(CommonData, Base):
     value = Column(Float)
 
 
+class JsonArray(TypeDecorator):
+    '''Converts numpy array to JSON string for storage in text field.'''
+
+    impl = Text
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = json.dumps(np.asarray(value).tolist())
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = np.asarray(json.loads(value))
+        return value
+
+
 class ArrayValues(CommonData, Base):
     __tablename__ = 'array'
-    value = Column(PickleType)
+    value = Column(JsonArray)
 
 
 class BlobValues(CommonData, Base):
