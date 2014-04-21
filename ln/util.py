@@ -1,7 +1,9 @@
 import json
-import ln
-from ln.backend.compat import zip
 from base64 import b64encode
+
+import ln
+from ln import backend
+from ln.backend.compat import zip
 
 
 def export_json(backend, output_file):
@@ -25,3 +27,15 @@ def export_json(backend, output_file):
         obj['series'].append(dict(config=config, points=points))
 
     json.dump(obj, output_file)
+
+
+def export_command(config, options):
+    '''Export database to JSON file.'''
+    print('Natural Log', ln.__version__)
+
+    storage = config['storage']
+    print('Opening "%s" storage backend...' % storage['backend'])
+    storage_backend = backend.get_backend(storage)
+
+    with open(options.output) as output:
+        export_json(storage_backend, output)
